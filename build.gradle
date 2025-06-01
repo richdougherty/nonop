@@ -8,6 +8,9 @@ version = "0.1.0-SNAPSHOT"
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
 }
 
 repositories {
@@ -24,11 +27,18 @@ dependencies {
     // runtimeOnly 'org.slf4j:slf4j-simple:1.7.36'
 
     // Testing
+    testImplementation(platform('org.junit:junit-bom:5.13.0'))
+    testImplementation('org.junit.jupiter:junit-jupiter')
+    testRuntimeOnly('org.junit.platform:junit-platform-launcher')
     // testImplementation 'org.junit.jupiter:junit-jupiter'
-    // testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.2'
-    // testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
+//     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.13.0'
+//     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.13.0'
     // testImplementation 'org.mockito:mockito-core:5.12.0'
     // testImplementation 'org.mockito:mockito-junit-jupiter:5.12.0'
+    testImplementation 'org.hamcrest:hamcrest:3.0'
+    // Testing - utils
+    testImplementation 'com.google.guava:guava:33.4.8-jre'
+    implementation 'org.apache.commons:commons-lang3:3.17.0'
 
     // For JMH later
     // testImplementation 'org.openjdk.jmh:jmh-core:1.37'
@@ -71,10 +81,12 @@ jar {
     duplicatesStrategy = DuplicatesStrategy.FAIL
 }
 
-// TODO: Write tests
-//tasks.test {
-//    useJUnitPlatform()
-//}
+tasks.test {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
 
 // Define a custom task to run your integration test sample app
 tasks.register('runTestApp', JavaExec) {

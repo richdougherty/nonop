@@ -132,56 +132,62 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
             nonopLogger.debug("Transforming class: " + canonicalClassName +
                     (classBeingRedefined != null ? " (redefining)" : " (initial)"));
 
-            // TODO: If this code can be called concurrently for a class we are entering a race at this point which could result in incorrect instrumentation if ordering is reversed
-            // TODO: Double check if we should be using something like AgentBuilder.disableClassFormatChanges to ensure we're doing conservative/low impact changes to classes
-            DynamicType.Builder<?> builder = new ByteBuddy()
-                    .redefine(typeDescription, ClassFileLocator.Simple.of(canonicalClassName, classfileBuffer));
-
-            boolean changed = false;
-            List<MethodDescription.InDefinedShape> methods = typeDescription.getDeclaredMethods().stream()
-                .filter(methodMatcher::matches)
-                .collect(Collectors.toList());
-
-            // Print used methods for debugging
-            nonopLogger.debug("Used methods for " + canonicalClassName + ": " + usedMethods);
-
-            for (MethodDescription.InDefinedShape method : methods) {
-                // TODO: Decide on which string representation for usage tracking is the fastest and most useful
-                String methodName = method.getInternalName(); // Method name or <init>
-                String methodDescriptor = method.getDescriptor();
-                String methodSignature = methodName + methodDescriptor; // Unique signature for the method
-
-                nonopLogger.debug("Processing method: " + methodName + " " + methodDescriptor);
-
-                // Used methods should be an empty set if this hasn't been called yet
-                boolean shouldInstrumentThisMethod = !usedMethods.contains(methodSignature);
-
-                if (shouldInstrumentThisMethod) {
-                    // This method has not been called yet, so instrument it to call the hook
-                    nonopLogger.debug("Instrumenting unused method: " + methodName + method.getDescriptor());
-                    // TODO: Consider micro-optimisations like caching Advice object
-                    builder = builder.visit(Advice.to(CallMethodCalledHook.class).on(ElementMatchers.is(method)));
-                    changed = true;
-                } else {
-                    // By not transforming this method, we are not generating instrumentation for this method.
-                    // If the method was previously instrumented, this effectively strips the instrumentation, making
-                    // future method calls zero overhead.
-                    nonopLogger.debug("Skipping instrumentation for already used method: " + methodName + method.getDescriptor());
-                }
-            }
-
-            if (changed) {
-                nonopLogger.debug("Applying changes to: " + canonicalClassName);
-                // builder.make().saveIn(new File("./dump")); - dump to analyse, use javap -v -constants -c -classpath dump nz.rd.nonoptest.integration.SampleInterface
-                return builder.make().getBytes();
-            } else {
-                nonopLogger.debug("No changes needed for: " + canonicalClassName);
-                // TODO: RecorderAPI.allMethodsUsed() - can possibly free any structures taken to record usage now, esp if have recorded some usage already
-                return null; // No transformation applied or re-applied
-            }
+            return instrumentUnusedMethods(typeDescription, canonicalClassName, classfileBuffer, usedMethods);
 
         } catch (Exception e) {
             nonopLogger.error("Transforming " + classNameJVM, e);
+            return null;
+        }
+    }
+
+    // Public for testing or direct use
+    public /* nullable */ byte[] instrumentUnusedMethods(TypeDescription typeDescription, String canonicalClassName, byte[] classfileBuffer, Set<String> usedMethods) {
+        // TODO: If this code can be called concurrently for a class we are entering a race at this point which could result in incorrect instrumentation if ordering is reversed
+        // TODO: Double check if we should be using something like AgentBuilder.disableClassFormatChanges to ensure we're doing conservative/low impact changes to classes
+        DynamicType.Builder<?> builder = new ByteBuddy()
+                // TODO: Get canonicalClassNameFrom typeDescription to avoid arg?
+                .redefine(typeDescription, ClassFileLocator.Simple.of(canonicalClassName, classfileBuffer));
+
+        boolean changed = false;
+        List<MethodDescription.InDefinedShape> methods = typeDescription.getDeclaredMethods().stream()
+            .filter(methodMatcher::matches)
+            .collect(Collectors.toList());
+
+        // Print used methods for debugging
+        nonopLogger.debug("Used methods for " + canonicalClassName + ": " + usedMethods);
+
+        for (MethodDescription.InDefinedShape method : methods) {
+            // TODO: Decide on which string representation for usage tracking is the fastest and most useful
+            String methodName = method.getInternalName(); // Method name or <init>
+            String methodDescriptor = method.getDescriptor();
+            String methodSignature = methodName + methodDescriptor; // Unique signature for the method
+
+            nonopLogger.debug("Processing method: " + methodName + " " + methodDescriptor);
+
+            // Used methods should be an empty set if this hasn't been called yet
+            boolean shouldInstrumentThisMethod = !usedMethods.contains(methodSignature);
+
+            if (shouldInstrumentThisMethod) {
+                // This method has not been called yet, so instrument it to call the hook
+                nonopLogger.debug("Instrumenting unused method: " + methodName + method.getDescriptor());
+                // TODO: Consider micro-optimisations like caching Advice object
+                builder = builder.visit(Advice.to(CallMethodCalledHook.class).on(ElementMatchers.is(method)));
+                changed = true;
+            } else {
+                // By not transforming this method, we are not generating instrumentation for this method.
+                // If the method was previously instrumented, this effectively strips the instrumentation, making
+                // future method calls zero overhead.
+                nonopLogger.debug("Skipping instrumentation for already used method: " + methodName + method.getDescriptor());
+            }
+        }
+
+        if (changed) {
+            nonopLogger.debug("Applying changes to: " + canonicalClassName);
+            // builder.make().saveIn(new File("./dump")); - dump to analyse, use javap -v -constants -c -classpath dump nz.rd.nonoptest.integration.SampleInterface
+            return builder.make().getBytes();
+        } else {
+            nonopLogger.debug("No changes needed for: " + canonicalClassName);
+            // TODO: RecorderAPI.allMethodsUsed() - can possibly free any structures taken to record usage now, esp if have recorded some usage already
             return null;
         }
     }

@@ -17,6 +17,7 @@ public final class NonopStaticHooks {
     }
 
     public static interface MethodCalled {
+        // TODO: Change to take methodName ("method") and methodDescriptor ("()V") separately since they are already stored in classfile constants, so we can reuse them and reduce memory usage
         void methodCalled(Class<?> clazz, String methodSignature);
     }
 }
