@@ -70,7 +70,7 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
             Class<?> classBeingRedefined,
             ProtectionDomain protectionDomain,
             byte[] classfileBuffer) throws IllegalClassFormatException {
-        nonopLogger.debug("Transform called for: " + classNameJVM + ", loader: " + loader);
+//        nonopLogger.debug("Transform called for: " + classNameJVM + ", loader: " + loader);
         // TODO: Consider different classloaders may define different classes
         // TODO: Consider classloaders may be unloaded, perhaps need to allow related instrumentation to be unloaded
         // TODO: If we unload anything, need to make sure we don't lose any recorded method usages before we unload it
@@ -84,7 +84,7 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
             // - https://hibernate.atlassian.net/browse/HHH-9541
             if (classNameJVM == null) {
                 // TODO: Consider if we want to allow this - would be hard to record usage, technically live code could be in a lambda
-                nonopLogger.debug("Skipping instrumentation for unnamed synthetic class in ClassLoader: " + loader);
+//                nonopLogger.debug("Skipping instrumentation for unnamed synthetic class in ClassLoader: " + loader);
                 return null;
             }
             // Filter out some obvious classes that have weird files that confuse ByteBuddy or that we never want to process
@@ -93,7 +93,7 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
             // TODO: Make this nicer, perhaps a common exclusion list to tie in with the TypeMatcher we also define
             // TODO: Test without these exclusions to see if we can make handling of unusual classes (synthetic, proxies, etc) better
             if (classNameJVM.startsWith("java/") || classNameJVM.startsWith("sun/") || classNameJVM.startsWith("com/sun/")  || classNameJVM.startsWith("net/bytebuddy/") || classNameJVM.startsWith("nz/rd/nonop/")) {
-                nonopLogger.debug("Skipping instrumentation for class starting with special excluded list: " + classNameJVM);
+//                nonopLogger.debug("Skipping instrumentation for class starting with special excluded list: " + classNameJVM);
                 return null; // Do not transform
             }
 
@@ -101,7 +101,7 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
             // TODO: Add option to include boot classloader - excludes lots of java and weird classes
             // Example unusual class: net.bytebuddy.pool.TypePool$Resolution$NoSuchTypeException: Cannot resolve type description for java.lang.invoke.BoundMethodHandle$Species_L4
             if (loader == null) {
-                nonopLogger.debug("Skipping instrumentation for bootstrap ClassLoader for className: " + classNameJVM);
+//                nonopLogger.debug("Skipping instrumentation for bootstrap ClassLoader for className: " + classNameJVM);
                 return null;
             }
 
@@ -125,17 +125,17 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
             }
 
             if (!typeMatcher.matches(typeDescription)) {
-                nonopLogger.debug("Skipping transformation for excluded class named: " + canonicalClassName + ", loader: " + loader);
+//                nonopLogger.debug("Skipping transformation for excluded class named: " + canonicalClassName + ", loader: " + loader);
                 return null; // Do not transform
             }
 
             nonopLogger.debug("Transforming class: " + canonicalClassName +
-                    (classBeingRedefined != null ? " (redefining)" : " (initial)"));
+                    (classBeingRedefined != null ? " (redefining)" : " (initial)") + " for ClassLoader: " + loader + ". Used methods: " + usedMethods);
 
             return instrumentUnusedMethods(typeDescription, canonicalClassName, classfileBuffer, usedMethods);
 
         } catch (Exception e) {
-            nonopLogger.error("Transforming " + classNameJVM, e);
+            nonopLogger.error("Exception during transform for class: " + classNameJVM, e);
             return null;
         }
     }
@@ -154,7 +154,7 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
             .collect(Collectors.toList());
 
         // Print used methods for debugging
-        nonopLogger.debug("Used methods for " + canonicalClassName + ": " + usedMethods);
+//        nonopLogger.debug("Used methods for " + canonicalClassName + ": " + usedMethods);
 
         for (MethodDescription.InDefinedShape method : methods) {
             // TODO: Decide on which string representation for usage tracking is the fastest and most useful
@@ -162,14 +162,14 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
             String methodDescriptor = method.getDescriptor();
             String methodSignature = methodName + methodDescriptor; // Unique signature for the method
 
-            nonopLogger.debug("Processing method: " + methodName + " " + methodDescriptor);
+//            nonopLogger.debug("Processing method: " + methodName + " " + methodDescriptor);
 
             // Used methods should be an empty set if this hasn't been called yet
             boolean shouldInstrumentThisMethod = !usedMethods.contains(methodSignature);
 
             if (shouldInstrumentThisMethod) {
                 // This method has not been called yet, so instrument it to call the hook
-                nonopLogger.debug("Instrumenting unused method: " + methodName + method.getDescriptor());
+                nonopLogger.debug("Method transformation: " + canonicalClassName + " " + methodSignature + ": UNUSED - instrumenting");
                 // TODO: Consider micro-optimisations like caching Advice object
                 builder = builder.visit(Advice.to(CallMethodCalledHook.class).on(ElementMatchers.is(method)));
                 changed = true;
@@ -177,7 +177,7 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
                 // By not transforming this method, we are not generating instrumentation for this method.
                 // If the method was previously instrumented, this effectively strips the instrumentation, making
                 // future method calls zero overhead.
-                nonopLogger.debug("Skipping instrumentation for already used method: " + methodName + method.getDescriptor());
+                nonopLogger.debug("Method transformation: " + canonicalClassName + " " + methodSignature + ": ALREADY USED - skipping");
             }
         }
 

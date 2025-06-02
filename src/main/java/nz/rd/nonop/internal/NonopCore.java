@@ -35,7 +35,7 @@ public final class NonopCore implements NonopStaticHooks.MethodCalled, NonopClas
     // Called by instrumented code (Phase 0)
     public void methodCalled(Class<?> clazz, String methodSignature) {
         try {
-            nonopLogger.debug("methodCalled hook invoked: " + clazz.getCanonicalName() + " " + methodSignature);
+            nonopLogger.debug("=== MethodCalled hook invoked: " + clazz.getCanonicalName() + " " + methodSignature);
             ClassUsageState classUsageState = getClassUsageState(clazz);
             ClassUsageState.MarkResult markResult = classUsageState.recordMethodUsedAndDecideIfInstrumentationNeeded(methodSignature);
 

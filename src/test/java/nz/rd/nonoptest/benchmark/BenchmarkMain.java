@@ -20,7 +20,6 @@ public class BenchmarkMain {
 
         Method callAllMethods = methodCallerClazz.getDeclaredMethod("callAllMethodsMultipleTimes", int.class, long.class, long[].class);
         long[] iterationTimes = new long[iterations];
-        //     public static void callAllMethodsMultipleTimes(int iterations, long[] iterationTimes) {
         long callAllStartTime = System.nanoTime();
         callAllMethods.invoke(null, iterations, callAllStartTime, iterationTimes);
         long callAllEndTime = System.nanoTime();

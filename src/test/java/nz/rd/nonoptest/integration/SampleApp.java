@@ -32,6 +32,7 @@ public class SampleApp extends SampleSuperClass implements SampleInterface {
         SampleApp app = new SampleApp();
         app.usedMethod1();
         SampleApp.usedStaticMethod3();
+        SampleApp.usedStaticMethod3(); // Second call!
         // app.unusedMethod(); // Keep this commented out
         long end = System.nanoTime();
         System.out.println("SampleApp main finished in " + (end - start) / 1_000_000 + " ms");
