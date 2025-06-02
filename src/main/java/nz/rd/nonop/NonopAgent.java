@@ -7,6 +7,7 @@ import nz.rd.nonop.internal.NonopCore;
 import nz.rd.nonop.internal.NonopStaticHooks;
 import nz.rd.nonop.internal.reporting.LoggingUsageReporter;
 import nz.rd.nonop.internal.reporting.UsageReporter;
+import nz.rd.nonop.internal.reporting.format.JsonUsageEventFormatter;
 import nz.rd.nonop.internal.util.NonopConsoleLogger;
 import nz.rd.nonop.internal.util.NonopLogger;
 
@@ -18,6 +19,11 @@ public class NonopAgent implements AutoCloseable {
     private final NonopLogger nonopLogger;
 
     public static void premain(String agentArgs, Instrumentation instrumentation) {
+        // TODO: Consider adding protection from IntelliJ's double-run agent bug under Gradle by making premain calls with identical args idempotent?
+        // https://youtrack.jetbrains.com/issue/IDEA-235974/Java-instrumentation-premain-gets-called-twice-with-Gradle-run-delegation
+
+        // TODO: Command line argument to control logging and debug level
+
         NonopLogger nonopLogger = new NonopConsoleLogger(true);
         nonopLogger.debug("[nonop] Initializing Nonop agent with instrumentation: " + instrumentation +
                 ", args: " + (agentArgs == null ? "<none>" : agentArgs));
@@ -29,7 +35,8 @@ public class NonopAgent implements AutoCloseable {
 
     public NonopAgent(NonopLogger nonopLogger, Instrumentation instrumentation) {
         this.nonopLogger = nonopLogger;
-        usageReporter = new LoggingUsageReporter(nonopLogger);
+        JsonUsageEventFormatter jsonUsageEventFormatter = new JsonUsageEventFormatter();
+        usageReporter = new LoggingUsageReporter(nonopLogger, jsonUsageEventFormatter);
         NonopCore core = new NonopCore(nonopLogger, instrumentation, usageReporter);
 
         NonopStaticHooks.initialize(core);

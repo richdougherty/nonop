@@ -7,6 +7,7 @@ import nz.rd.nonop.internal.model.ClassUsageState;
 import nz.rd.nonop.internal.model.JVMRegistry;
 import nz.rd.nonop.internal.reporting.UsageReporter;
 import nz.rd.nonop.internal.util.NonopLogger;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.lang.instrument.Instrumentation;
 import java.util.Set;
@@ -33,11 +34,12 @@ public final class NonopCore implements NonopStaticHooks.MethodCalled, NonopClas
     }
 
     // Called by instrumented code (Phase 0)
-    public void methodCalled(Class<?> clazz, String methodSignature) {
+    public void methodCalled(Class<?> clazz, String methodName, String methodDescriptor) {
         try {
-            nonopLogger.debug("=== MethodCalled hook invoked: " + clazz.getCanonicalName() + " " + methodSignature);
+            long callTimestamp = System.currentTimeMillis();
+            nonopLogger.debug("=== MethodCalled hook invoked: " + clazz.getCanonicalName() + " " + methodName + methodDescriptor);
             ClassUsageState classUsageState = getClassUsageState(clazz);
-            ClassUsageState.MarkResult markResult = classUsageState.recordMethodUsedAndDecideIfInstrumentationNeeded(methodSignature);
+            ClassUsageState.MarkResult markResult = classUsageState.recordMethodUsedAndDecideIfInstrumentationNeeded(methodName, methodDescriptor);
 
             if (markResult.isInstrumentationNeeded()) {
                 scheduleRetransformation(classUsageState);
@@ -45,7 +47,7 @@ public final class NonopCore implements NonopStaticHooks.MethodCalled, NonopClas
 
             if (markResult.isAdded()) {
                 // Retain strong reference until reported
-                usageReporter.recordMethodFirstUsage(clazz, methodSignature);
+                usageReporter.recordMethodFirstUsage(callTimestamp, clazz, methodName, methodDescriptor);
             }
         } catch (Exception e) {
             nonopLogger.error("Error in methodCalled", e);
@@ -77,7 +79,7 @@ public final class NonopCore implements NonopStaticHooks.MethodCalled, NonopClas
     }
 
     @Override
-    public Set<String> usageSnapshotForInstrumentation(Class<?> clazz) {
+    public Set<Pair<String, String>> usageSnapshotForInstrumentation(Class<?> clazz) {
         return getClassUsageState(clazz).recordInstrumentationWithSnapshotOfUsage();
     }
 }

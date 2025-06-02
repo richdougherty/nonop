@@ -13,15 +13,13 @@ import net.bytebuddy.implementation.StubMethod;
 import net.bytebuddy.pool.TypePool;
 import nz.rd.nonop.internal.util.NonopConsoleLogger;
 import nz.rd.nonop.internal.util.NonopLogger;
-import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.lang.reflect.Method;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -35,11 +33,12 @@ class NonopClassfileTransformerTest {
     private NonopLogger nonopLogger;
     private NonopClassfileTransformer.GetMethodUsageSnapshot getMethodUsageSnapshot;
 
-    private final AtomicReference<Pair<Class<?>, String>> hookArgs = new AtomicReference<>();
+    private final AtomicReference<Triple<Class<?>, String, String>> hookArgs = new AtomicReference<>();
 
     private static final String TEST_CLASS_NAME = "nz.rd.nonoptest.Dynamic1";
     private static final String TEST_METHOD_NAME = "myMethod";
-    private static final String EXPECTED_METHOD_SIGNATURE = TEST_METHOD_NAME + "()V"; // void myMethod()
+    private static final String TEST_METHOD_DESCRIPTOR = "()V";
+//    private static final Pair<String, String> EXPECTED_METHOD_SIGNATURE = ImmutablePair.of(TEST_METHOD_NAME, TEST_METHOD_DESCRIPTOR); // void myMethod()
 
     @BeforeEach
     void setUp() {
@@ -48,8 +47,8 @@ class NonopClassfileTransformerTest {
 
         hookArgs.set(null);
 
-        NonopStaticHooks.MethodCalled methodCalledHook = (clazz, methodSignature) -> {
-            hookArgs.set(new ImmutablePair<>(clazz, methodSignature));
+        NonopStaticHooks.MethodCalled methodCalledHook = (clazz, methodName, methodDescriptor) -> {
+            hookArgs.set(ImmutableTriple.of(clazz, methodName, methodDescriptor));
             // System.out.println("Hook called: " + clazz.getName() + "#" + methodSignature); // For test debugging
         };
         NonopStaticHooks.initialize(methodCalledHook);
@@ -123,13 +122,13 @@ class NonopClassfileTransformerTest {
         method.invoke(instance);
 
         // 6. Assertions
-        assertEquals(new ImmutablePair<>(instrumentedClass, EXPECTED_METHOD_SIGNATURE), hookArgs.get(), "Hook called with correct class and method signature");
+        assertEquals(new ImmutableTriple<>(instrumentedClass, TEST_METHOD_NAME, TEST_METHOD_DESCRIPTOR), hookArgs.get(), "Hook called with correct class and method signature");
     }
 
     @Test
     public void instrumentUnusedMethods_shouldNotInstrumentAlreadyUsedMethod() throws Exception {
         // Arrange: This time, the method is "already used"
-        getMethodUsageSnapshot = clazz -> Collections.singleton(EXPECTED_METHOD_SIGNATURE);
+        getMethodUsageSnapshot = clazz -> Collections.singleton(Pair.of(TEST_METHOD_NAME, TEST_METHOD_DESCRIPTOR));
         NonopClassfileTransformer transformer = new NonopClassfileTransformer(getMethodUsageSnapshot, nonopLogger);
 
         byte[] originalBytes = new ByteBuddy()
@@ -150,7 +149,9 @@ class NonopClassfileTransformerTest {
                 typeDescription,
                 TEST_CLASS_NAME,
                 originalBytes,
-                ImmutableSet.of("<init>()V", EXPECTED_METHOD_SIGNATURE) // Mark method as used
+                ImmutableSet.of(
+                        Pair.of("<init>", "()V"),
+                        Pair.of(TEST_METHOD_NAME, TEST_METHOD_DESCRIPTOR)) // Mark method as used
         );
 
         // Assert: No transformation should occur, so resultBytes should be null

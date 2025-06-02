@@ -3,6 +3,7 @@
 package nz.rd.nonop.internal.reporting;
 
 public interface UsageReporter {
-    void recordMethodFirstUsage(Class<?> clazz, String methodSignature);
+    // TODO: Consider using class name as a String
+    void recordMethodFirstUsage(long timestampMillis, Class<?> clazz, String methodName, String methodDescriptor);
     void finishUsageReportingOnShutdown();
 }

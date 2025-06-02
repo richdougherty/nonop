@@ -2,6 +2,9 @@
 
 package nz.rd.nonop.internal.model;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
+
 import java.lang.ref.WeakReference;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -13,7 +16,7 @@ public final class ClassUsageState {
     private final WeakReference<? extends Class<?>> clazzWeakRef;
 
     // Track method call states: no entry = unused, CALLED_ONCE = first call, CALLED_MULTIPLE = second+ call
-    private final Map<String, MethodCallState> methodCallStates = new HashMap<>();
+    private final Map<Pair<String, String>, MethodCallState> methodCallStates = new HashMap<>();
     private boolean reinstrumentationScheduled = false;
 
     public ClassUsageState(Class<?> clazz /*, Collection<String> methodSignatures */) {
@@ -52,16 +55,17 @@ public final class ClassUsageState {
         }
     }
 
-    public synchronized MarkResult recordMethodUsedAndDecideIfInstrumentationNeeded(String methodSignature) {
-        MethodCallState currentState = methodCallStates.get(methodSignature);
+    public synchronized MarkResult recordMethodUsedAndDecideIfInstrumentationNeeded(String methodName, String methodDescriptor) {
+        Pair<String, String> methodKey = new ImmutablePair<>(methodName, methodDescriptor);
+        MethodCallState currentState = methodCallStates.get(methodKey);
 
         if (currentState == null) {
             // First call - record it but don't trigger reinstrumentation yet
-            methodCallStates.put(methodSignature, MethodCallState.CALLED_ONCE);
+            methodCallStates.put(methodKey, MethodCallState.CALLED_ONCE);
             return MarkResult.FIRST_CALL_NO_ACTION;
         } else if (currentState == MethodCallState.CALLED_ONCE) {
             // Second call - upgrade state and decide about reinstrumentation
-            methodCallStates.put(methodSignature, MethodCallState.CALLED_MULTIPLE);
+            methodCallStates.put(methodKey, MethodCallState.CALLED_MULTIPLE);
 
             if (reinstrumentationScheduled) {
                 return MarkResult.SECOND_CALL_INSTRUMENTATION_ALREADY_SCHEDULED;
@@ -75,9 +79,10 @@ public final class ClassUsageState {
         }
     }
 
-    public synchronized Set<String> recordInstrumentationWithSnapshotOfUsage() {
+    public synchronized Set<Pair<String, String>> recordInstrumentationWithSnapshotOfUsage() {
         // Create snapshot of all methods that have been called at least once
-        Set<String> usageSnapshot = new HashSet<>(methodCallStates.keySet());
+        // TODO: Performance optimise - perhaps just a wrapped Array?
+        Set<Pair<String, String>> usageSnapshot = new HashSet<>(methodCallStates.keySet());
         reinstrumentationScheduled = false;
         return usageSnapshot;
     }

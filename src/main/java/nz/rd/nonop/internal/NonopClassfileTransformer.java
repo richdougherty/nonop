@@ -11,6 +11,8 @@ import net.bytebuddy.dynamic.DynamicType;
 import net.bytebuddy.matcher.ElementMatchers;
 import net.bytebuddy.pool.TypePool;
 import nz.rd.nonop.internal.util.NonopLogger;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
@@ -24,7 +26,7 @@ import java.util.stream.Collectors;
 public class NonopClassfileTransformer implements ClassFileTransformer {
 
     public interface GetMethodUsageSnapshot {
-        Set<String> usageSnapshotForInstrumentation(Class<?> clazz);
+        Set<Pair<String, String>> usageSnapshotForInstrumentation(Class<?> clazz);
     }
 
     private final GetMethodUsageSnapshot usageSnapshot;
@@ -111,7 +113,7 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
 
             // Create TypeDescription based on whether the class is being redefined or initially loaded
             TypeDescription typeDescription;
-            Set<String> usedMethods;
+            Set<Pair<String, String>> usedMethods;
             if (classBeingRedefined != null) {
                 // For retransformation, use the loaded class
                 typeDescription = new TypeDescription.ForLoadedType(classBeingRedefined);
@@ -141,7 +143,7 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
     }
 
     // Public for testing or direct use
-    public /* nullable */ byte[] instrumentUnusedMethods(TypeDescription typeDescription, String canonicalClassName, byte[] classfileBuffer, Set<String> usedMethods) {
+    public /* nullable */ byte[] instrumentUnusedMethods(TypeDescription typeDescription, String canonicalClassName, byte[] classfileBuffer, Set<Pair<String, String>> usedMethods) {
         // TODO: If this code can be called concurrently for a class we are entering a race at this point which could result in incorrect instrumentation if ordering is reversed
         // TODO: Double check if we should be using something like AgentBuilder.disableClassFormatChanges to ensure we're doing conservative/low impact changes to classes
         DynamicType.Builder<?> builder = new ByteBuddy()
@@ -160,16 +162,16 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
             // TODO: Decide on which string representation for usage tracking is the fastest and most useful
             String methodName = method.getInternalName(); // Method name or <init>
             String methodDescriptor = method.getDescriptor();
-            String methodSignature = methodName + methodDescriptor; // Unique signature for the method
+            Pair<String, String> methodKey = ImmutablePair.of(methodName, methodDescriptor);
 
 //            nonopLogger.debug("Processing method: " + methodName + " " + methodDescriptor);
 
             // Used methods should be an empty set if this hasn't been called yet
-            boolean shouldInstrumentThisMethod = !usedMethods.contains(methodSignature);
+            boolean shouldInstrumentThisMethod = !usedMethods.contains(methodKey);
 
             if (shouldInstrumentThisMethod) {
                 // This method has not been called yet, so instrument it to call the hook
-                nonopLogger.debug("Method transformation: " + canonicalClassName + " " + methodSignature + ": UNUSED - instrumenting");
+                nonopLogger.debug("Method transformation: " + canonicalClassName + " " + methodName + " " + methodDescriptor + ": UNUSED - instrumenting");
                 // TODO: Consider micro-optimisations like caching Advice object
                 builder = builder.visit(Advice.to(CallMethodCalledHook.class).on(ElementMatchers.is(method)));
                 changed = true;
@@ -177,7 +179,7 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
                 // By not transforming this method, we are not generating instrumentation for this method.
                 // If the method was previously instrumented, this effectively strips the instrumentation, making
                 // future method calls zero overhead.
-                nonopLogger.debug("Method transformation: " + canonicalClassName + " " + methodSignature + ": ALREADY USED - skipping");
+                nonopLogger.debug("Method transformation: " + canonicalClassName + " " + methodName + " " + methodDescriptor + ": ALREADY USED - skipping");
             }
         }
 
@@ -196,11 +198,11 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
         @Advice.OnMethodEnter(suppress = Throwable.class) // TODO: Remove suppression if generates try/catch bytecode
         public static void enter(
                 @Advice.Origin Class<?> clazz,
-                // TODO: Can we optimize by picking string constants already present in the classfile?
-                @Advice.Origin("#m#d") String methodSignature
+                @Advice.Origin("#m") String methodName,
+                @Advice.Origin("#d") String methodDescriptor
         ) {
             // TODO: Check bytecode generated is minimised
-            NonopStaticHooks.methodCalled(clazz, methodSignature);
+            NonopStaticHooks.methodCalled(clazz, methodName, methodDescriptor);
         }
     }
 

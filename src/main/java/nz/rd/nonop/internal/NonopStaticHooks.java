@@ -12,12 +12,12 @@ public final class NonopStaticHooks {
     }
 
     // Called by instrumented code (Phase 0)
-    public static void methodCalled(Class<?> clazz, String methodSignature) {
-        methodCalled.methodCalled(clazz, methodSignature);
+    public static void methodCalled(Class<?> clazz, String methodName, String methodDescriptor) {
+        methodCalled.methodCalled(clazz, methodName, methodDescriptor);
     }
 
     public static interface MethodCalled {
         // TODO: Change to take methodName ("method") and methodDescriptor ("()V") separately since they are already stored in classfile constants, so we can reuse them and reduce memory usage
-        void methodCalled(Class<?> clazz, String methodSignature);
+        void methodCalled(Class<?> clazz, String methodName, String methodDescriptor);
     }
 }
