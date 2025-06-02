@@ -6,6 +6,7 @@ import nz.rd.nonop.internal.NonopClassfileTransformer;
 import nz.rd.nonop.internal.NonopCore;
 import nz.rd.nonop.internal.NonopStaticHooks;
 import nz.rd.nonop.internal.reporting.LoggingUsageReporter;
+import nz.rd.nonop.internal.reporting.UsageReporter;
 import nz.rd.nonop.internal.util.NonopConsoleLogger;
 import nz.rd.nonop.internal.util.NonopLogger;
 
@@ -13,11 +14,11 @@ import java.lang.instrument.Instrumentation;
 
 public class NonopAgent implements AutoCloseable {
 
-    private final LoggingUsageReporter usageReporting;
+    private final UsageReporter usageReporter;
     private final NonopLogger nonopLogger;
 
     public static void premain(String agentArgs, Instrumentation instrumentation) {
-        NonopLogger nonopLogger = new NonopConsoleLogger(false);
+        NonopLogger nonopLogger = new NonopConsoleLogger(true);
         nonopLogger.debug("[nonop] Initializing Nonop agent with instrumentation: " + instrumentation +
                 ", args: " + (agentArgs == null ? "<none>" : agentArgs));
 
@@ -28,8 +29,8 @@ public class NonopAgent implements AutoCloseable {
 
     public NonopAgent(NonopLogger nonopLogger, Instrumentation instrumentation) {
         this.nonopLogger = nonopLogger;
-        usageReporting = new LoggingUsageReporter(nonopLogger);
-        NonopCore core = new NonopCore(nonopLogger, instrumentation, usageReporting);
+        usageReporter = new LoggingUsageReporter(nonopLogger);
+        NonopCore core = new NonopCore(nonopLogger, instrumentation, usageReporter);
 
         NonopStaticHooks.initialize(core);
         NonopClassfileTransformer transformer = new NonopClassfileTransformer(core, nonopLogger);
@@ -41,7 +42,7 @@ public class NonopAgent implements AutoCloseable {
     @Override
     public void close() {
         nonopLogger.debug("[nonop] Closing Nonop agent and reporting usage on shutdown.");
-        usageReporting.finishUsageReportingOnShutdown();
+        usageReporter.finishUsageReportingOnShutdown();
         // TODO: Close other resources, e.g. threads
         // TODO: Consider whether to have an optimized close for shutting down faster, i.e. only flush the report, don't worry about other resources
     }

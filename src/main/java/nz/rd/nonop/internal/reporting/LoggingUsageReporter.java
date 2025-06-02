@@ -5,7 +5,7 @@ package nz.rd.nonop.internal.reporting;
 import nz.rd.nonop.internal.util.NonopLogger;
 
 // TODO: Make optimised version to run in a different thread, async etc
-public final class LoggingUsageReporter implements UsageReporting {
+public final class LoggingUsageReporter implements UsageReporter {
 
     private final NonopLogger nonopLogger;
 

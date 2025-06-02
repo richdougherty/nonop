@@ -5,7 +5,7 @@ package nz.rd.nonop.internal;
 import nz.rd.nonop.internal.model.ClassLoaderRegistry;
 import nz.rd.nonop.internal.model.ClassUsageState;
 import nz.rd.nonop.internal.model.JVMRegistry;
-import nz.rd.nonop.internal.reporting.UsageReporting;
+import nz.rd.nonop.internal.reporting.UsageReporter;
 import nz.rd.nonop.internal.util.NonopLogger;
 
 import java.lang.instrument.Instrumentation;
@@ -15,15 +15,15 @@ public final class NonopCore implements NonopStaticHooks.MethodCalled, NonopClas
 
     private final NonopLogger nonopLogger;
     private final Instrumentation instrumentation;
-    private final UsageReporting usageReporting;
+    private final UsageReporter usageReporter;
 
     private final JVMRegistry jvmRegistry = new JVMRegistry();
 
     // Private constructor to prevent instantiation
-    public NonopCore(NonopLogger nonopLogger, Instrumentation inst, UsageReporting usageReporting) {
+    public NonopCore(NonopLogger nonopLogger, Instrumentation inst, UsageReporter usageReporter) {
         this.nonopLogger = nonopLogger;
         this.instrumentation = inst;
-        this.usageReporting = usageReporting;
+        this.usageReporter = usageReporter;
     }
 
     public ClassUsageState getClassUsageState(Class<?> clazz) {
@@ -45,7 +45,7 @@ public final class NonopCore implements NonopStaticHooks.MethodCalled, NonopClas
 
             if (markResult.isAdded()) {
                 // Retain strong reference until reported
-                usageReporting.recordMethodFirstUsage(clazz, methodSignature);
+                usageReporter.recordMethodFirstUsage(clazz, methodSignature);
             }
         } catch (Exception e) {
             nonopLogger.error("Error in methodCalled", e);

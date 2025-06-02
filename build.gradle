@@ -103,3 +103,83 @@ tasks.register('runTestApp', JavaExec) {
     dependsOn jar
     jvmArgs = ["-javaagent:${jar.archiveFile.get().asFile.absolutePath}"]
 }
+
+// Define benchmark applications: [name: String, mainClass: String, appArgs: List<String>]
+// 'name' is used for task naming, should be unique and simple (e.g., lowercase_with_underscores)
+def benchmarkApps = [
+        [name: 'methodCalls', mainClass: 'nz.rd.nonoptest.benchmark.BenchmarkMain', appArgs: ['20']],
+//        [name: 'method_calls_100', mainClass: 'nz.rd.nonoptest.benchmark.BenchmarkMain', appArgs: ['100']],
+         [name: 'sampleApp', mainClass: 'nz.rd.nonoptest.integration.SampleApp', appArgs: []]
+         // Add more applications here
+        ]
+
+// Define JVM argument configurations: [name: String, jvmArgsProvider: Closure returning List<String>]
+// Using a closure for jvmArgsProvider allows lazy evaluation of the agent JAR path.
+def jvmArgConfigs = [
+        [name: 'noAgent', jvmArgsProvider: { [] }],
+        [name: 'withAgent', jvmArgsProvider: { ["-javaagent:${tasks.named('jar').flatMap { it.archiveFile }.get().asFile.absolutePath}"] }]
+]
+
+// --- Dynamically Create Benchmark Tasks ---
+
+// Ensure the output directory for benchmark results exists
+//def benchmarkResultsDir = file("${buildDir}/benchmark-results")
+def benchmarkResultsDir = file("${layout.buildDirectory.get().asFile}/benchmark-results")
+
+benchmarkApps.each { appConfig ->
+    jvmArgConfigs.each { jvmConfig ->
+        def taskName = "runBenchmark_${appConfig.name}_${jvmConfig.name}"
+        tasks.register(taskName, JavaExec) {
+            group = "Benchmarking"
+            description = "Runs benchmark '${appConfig.name}' with '${jvmConfig.name}' JVM config."
+
+            mainClass = appConfig.mainClass
+            // Assuming benchmark apps are in test sources or depend on test configurations
+            classpath = sourceSets.test.runtimeClasspath
+
+            // Application-specific arguments
+            args = appConfig.appArgs
+
+            // JVM arguments from the configuration
+            // The closure ensures the agent path is resolved at execution time
+            jvmArgumentProviders.add(new CommandLineArgumentProvider() {
+                @Override
+                Iterable<String> asArguments() {
+                    return jvmConfig.jvmArgsProvider() // Call the closure
+                }
+            })
+
+            // All benchmark tasks depend on the agent JAR being built
+            dependsOn tasks.named('jar')
+
+            // Optional: Force tasks to always run (useful for benchmarking)
+            outputs.upToDateWhen { false }
+
+            // Optional: Redirect output to a file
+            doFirst {
+                benchmarkResultsDir.mkdirs() // Ensure directory exists
+                // TODO: Consider TeeOutputStream (https://stackoverflow.com/questions/24633608/gradle-tasks-standardoutput-to-file-and-terminal-simultaneously)
+                standardOutput = new FileOutputStream("${benchmarkResultsDir}/${appConfig.name}-${jvmConfig.name}.log")
+                errorOutput = new FileOutputStream("${benchmarkResultsDir}/${appConfig.name}-${jvmConfig.name}.err.log")
+            }
+
+            // Optional: Add system properties if needed
+            // systemProperty 'my.benchmark.property', 'value'
+        }
+    }
+}
+
+// You can create an aggregate task to run all benchmarks of a certain type
+tasks.register('runAllMethodCallBenchmarksWithAgent') {
+    group = "Benchmarking"
+    description = "Runs all 'methodCalls' benchmarks with the agent."
+    dependsOn tasks.matching {
+        it.name.startsWith('runBenchmark_methodCalls') && it.name.endsWith('_withAgent')
+    }
+}
+
+tasks.register('runAllBenchmarks') {
+    group = "Benchmarking"
+    description = "Runs all defined benchmarks."
+    dependsOn tasks.matching { it.name.startsWith('runBenchmark_') }
+}

@@ -27,16 +27,13 @@ public class SampleApp extends SampleSuperClass implements SampleInterface {
     }
 
     public static void main(String[] args) {
+        long start = System.nanoTime();
         System.out.println("SampleApp main starting...");
         SampleApp app = new SampleApp();
         app.usedMethod1();
         SampleApp.usedStaticMethod3();
         // app.unusedMethod(); // Keep this commented out
-        System.out.println("SampleApp main finished. Waiting a bit for agent report...");
-        try {
-            Thread.sleep(4000); // Give shutdown hook a moment
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        long end = System.nanoTime();
+        System.out.println("SampleApp main finished in " + (end - start) / 1_000_000 + " ms");
     }
 }
