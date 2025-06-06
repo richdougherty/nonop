@@ -11,8 +11,8 @@ import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.dynamic.loading.ByteArrayClassLoader;
 import net.bytebuddy.implementation.StubMethod;
 import net.bytebuddy.pool.TypePool;
-import nz.rd.nonop.config.AgentConfig;
-import nz.rd.nonop.config.NonopPropertyUtils;
+import nz.rd.nonop.config.ScanConfig;
+import nz.rd.nonop.internal.config.NonopPropertyUtils;
 import nz.rd.nonop.internal.transformer.NonopClassfileTransformer;
 import nz.rd.nonop.internal.util.NonopConsoleLogger;
 import nz.rd.nonop.internal.util.NonopLogger;
@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class NonopClassfileTransformerTest {
 
     private NonopLogger nonopLogger;
-    private AgentConfig agentConfig;
+    private ScanConfig scanConfig;
     private NonopClassfileTransformer.GetMethodUsageSnapshot getMethodUsageSnapshot;
 
     private final AtomicReference<Triple<Class<?>, String, String>> hookArgs = new AtomicReference<>();
@@ -46,7 +46,7 @@ class NonopClassfileTransformerTest {
     @BeforeEach
     void setUp() throws Exception {
         nonopLogger = new NonopConsoleLogger(false); // Set to true for debugging output from transformer
-        agentConfig = AgentConfig.load(nonopLogger, NonopPropertyUtils.loadNonopDefaults());
+        scanConfig = ScanConfig.load(nonopLogger, NonopPropertyUtils.loadNonopDefaults());
         getMethodUsageSnapshot = clazz -> Collections.emptySet();
 
         hookArgs.set(null);
@@ -71,7 +71,7 @@ class NonopClassfileTransformerTest {
 
     @Test
     public void instrumentUnusedMethods_shouldInstrumentMethodAndTriggerHook() throws Exception {
-        NonopClassfileTransformer transformer = new NonopClassfileTransformer(agentConfig, getMethodUsageSnapshot, nonopLogger);
+        NonopClassfileTransformer transformer = new NonopClassfileTransformer(scanConfig, getMethodUsageSnapshot, nonopLogger);
 
         // 1. Create original class bytes
         byte[] originalBytes = new ByteBuddy()
@@ -122,7 +122,7 @@ class NonopClassfileTransformerTest {
     public void instrumentUnusedMethods_shouldNotInstrumentAlreadyUsedMethod() throws Exception {
         // Arrange: This time, the method is "already used"
         getMethodUsageSnapshot = clazz -> Collections.singleton(Pair.of(TEST_METHOD_NAME, TEST_METHOD_DESCRIPTOR));
-        NonopClassfileTransformer transformer = new NonopClassfileTransformer(agentConfig, getMethodUsageSnapshot, nonopLogger);
+        NonopClassfileTransformer transformer = new NonopClassfileTransformer(scanConfig, getMethodUsageSnapshot, nonopLogger);
 
         byte[] originalBytes = new ByteBuddy()
                 .subclass(Object.class)

@@ -1,4 +1,4 @@
-package nz.rd.nonop.config.scan;
+package nz.rd.nonop.internal.config;
 
 import nz.rd.nonop.internal.util.NonopLogger;
 import org.checkerframework.checker.nullness.qual.NonNull;

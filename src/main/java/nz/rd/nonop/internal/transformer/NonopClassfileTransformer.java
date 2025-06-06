@@ -11,8 +11,8 @@ import net.bytebuddy.dynamic.DynamicType;
 import net.bytebuddy.matcher.ElementMatcher;
 import net.bytebuddy.matcher.ElementMatchers;
 import net.bytebuddy.pool.TypePool;
-import nz.rd.nonop.config.AgentConfig;
-import nz.rd.nonop.config.scan.ScanMatcher;
+import nz.rd.nonop.config.ScanConfig;
+import nz.rd.nonop.internal.config.ScanMatcher;
 import nz.rd.nonop.internal.NonopStaticHooks;
 import nz.rd.nonop.internal.util.NonopLogger;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -45,7 +45,7 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
     private final boolean scanIncludeBootstrap;
     private final boolean scanIncludeUnnamed;
 
-    public NonopClassfileTransformer(AgentConfig agentConfig, GetMethodUsageSnapshot usageSnapshot, NonopLogger nonopLogger) {
+    public NonopClassfileTransformer(ScanConfig scanConfig, GetMethodUsageSnapshot usageSnapshot, NonopLogger nonopLogger) {
 
         this.usageSnapshot = usageSnapshot;
         this.nonopLogger = nonopLogger;
@@ -54,13 +54,13 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
                 ElementMatchers.isSubTypeOf(Object.class)
                 .or(ElementMatchers.isInterface());
 
-        if (!agentConfig.isScanIncludeSynthetic()) {
+        if (!scanConfig.isScanIncludeSynthetic()) {
             typeMatcherTemp = typeMatcherTemp.and(ElementMatchers.not(ElementMatchers.isSynthetic()));
         }
 
         List<ScanMatcher> allScanMatchers = new ArrayList<>();
-        allScanMatchers.addAll(agentConfig.getBuiltinScanMatchers());
-        allScanMatchers.addAll(agentConfig.getUserScanMatchers());
+        allScanMatchers.addAll(scanConfig.getBuiltinScanMatchers());
+        allScanMatchers.addAll(scanConfig.getUserScanMatchers());
         nonopLogger.debug("[nonop-config] Loaded scan matchers: " + allScanMatchers);
         NameBasedScanRuleMatcher nameBasedScanRuleMatcher = new NameBasedScanRuleMatcher(allScanMatchers, nonopLogger);
         typeMatcherTemp = typeMatcherTemp.and(nameBasedScanRuleMatcher);
@@ -68,8 +68,8 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
         // The NameBasedScanRuleMatcher now incorporates all include/exclude logic based on the ordered list.
         this.typeMatcher = typeMatcherTemp;
 
-        this.scanIncludeBootstrap = agentConfig.isScanIncludeBootstrap();
-        this.scanIncludeUnnamed = agentConfig.isScanIncludeUnnamed();
+        this.scanIncludeBootstrap = scanConfig.isScanIncludeBootstrap();
+        this.scanIncludeUnnamed = scanConfig.isScanIncludeUnnamed();
 
         // Updated method matcher to include default methods and static methods in interfaces
         this.methodMatcher = ElementMatchers.isMethod()

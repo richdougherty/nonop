@@ -1,4 +1,4 @@
-package nz.rd.nonop.config;
+package nz.rd.nonop.internal.config;
 
 import java.io.IOException;
 import java.io.InputStream;

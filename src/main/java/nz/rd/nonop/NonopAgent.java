@@ -3,7 +3,7 @@
 package nz.rd.nonop;
 
 import nz.rd.nonop.config.AgentConfig;
-import nz.rd.nonop.config.NonopPropertyUtils;
+import nz.rd.nonop.internal.config.NonopPropertyUtils;
 import nz.rd.nonop.internal.transformer.NonopClassfileTransformer;
 import nz.rd.nonop.internal.NonopCore;
 import nz.rd.nonop.internal.NonopStaticHooks;
@@ -47,7 +47,7 @@ public class NonopAgent implements AutoCloseable {
         usageReporter = new LoggingUsageReporter(nonopLogger, jsonUsageEventFormatter);
         NonopCore core = new NonopCore(nonopLogger, instrumentation, usageReporter);
 
-        NonopClassfileTransformer transformer = new NonopClassfileTransformer(agentConfig, core, nonopLogger);
+        NonopClassfileTransformer transformer = new NonopClassfileTransformer(agentConfig.getScanConfig(), core, nonopLogger);
 
         NonopStaticHooks.initialize(core);
         instrumentation.addTransformer(transformer, true); // true for canRetransform
