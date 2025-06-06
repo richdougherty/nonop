@@ -1,3 +1,5 @@
+// Copyright 2025 Rich Dougherty <rich@rd.nz>
+
 package nz.rd.nonop.internal.config;
 
 import java.io.IOException;

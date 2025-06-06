@@ -3,18 +3,19 @@
 package nz.rd.nonop;
 
 import nz.rd.nonop.config.AgentConfig;
-import nz.rd.nonop.internal.config.NonopPropertyUtils;
-import nz.rd.nonop.internal.transformer.NonopClassfileTransformer;
 import nz.rd.nonop.internal.NonopCore;
 import nz.rd.nonop.internal.NonopStaticHooks;
-import nz.rd.nonop.internal.reporting.LoggingUsageReporter;
+import nz.rd.nonop.internal.config.NonopPropertyUtils;
+import nz.rd.nonop.internal.reporting.OutputUsageReporter;
 import nz.rd.nonop.internal.reporting.UsageReporter;
 import nz.rd.nonop.internal.reporting.format.JsonUsageEventFormatter;
+import nz.rd.nonop.internal.transformer.NonopClassfileTransformer;
 import nz.rd.nonop.internal.util.NonopConsoleLogger;
 import nz.rd.nonop.internal.util.NonopLogger;
 
+import java.io.IOException;
 import java.lang.instrument.Instrumentation;
-import java.util.*;
+import java.util.Map;
 
 public class NonopAgent implements AutoCloseable {
 
@@ -32,19 +33,22 @@ public class NonopAgent implements AutoCloseable {
                 ", args: " + (agentArgs == null ? "<none>" : agentArgs));
 
         Map<String, String> properties = NonopPropertyUtils.loadNonopSystemPropertiesWithDefaults();
-        nonopLogger.debug("[nonop] Loaded system properties with defaults: " + properties);
+        nonopLogger.debug("[nonop] Loaded nonop properties (system props combined with defaults): " + properties);
 
         AgentConfig agentConfig = AgentConfig.load(nonopLogger, properties);
+        nonopLogger.debug("[nonop] Agent configuration loaded: " + agentConfig);
 
         @SuppressWarnings("resource") // Closed in shutdown hook
         NonopAgent agent = new NonopAgent(nonopLogger, agentConfig, instrumentation);
         Runtime.getRuntime().addShutdownHook(new Thread(agent::close));
     }
 
-    public NonopAgent(NonopLogger nonopLogger, AgentConfig agentConfig, Instrumentation instrumentation) {
+    public NonopAgent(NonopLogger nonopLogger, AgentConfig agentConfig, Instrumentation instrumentation) throws IOException {
         this.nonopLogger = nonopLogger;
+
         JsonUsageEventFormatter jsonUsageEventFormatter = new JsonUsageEventFormatter();
-        usageReporter = new LoggingUsageReporter(nonopLogger, jsonUsageEventFormatter);
+        usageReporter = new OutputUsageReporter(nonopLogger, agentConfig.getOutputConfig(), jsonUsageEventFormatter);
+//        usageReporter = new LoggingUsageReporter(nonopLogger, jsonUsageEventFormatter);
         NonopCore core = new NonopCore(nonopLogger, instrumentation, usageReporter);
 
         NonopClassfileTransformer transformer = new NonopClassfileTransformer(agentConfig.getScanConfig(), core, nonopLogger);
@@ -57,8 +61,14 @@ public class NonopAgent implements AutoCloseable {
 
     @Override
     public void close() {
-        nonopLogger.debug("[nonop] Closing Nonop agent and reporting usage on shutdown.");
-        usageReporter.finishUsageReportingOnShutdown();
+        nonopLogger.debug("Closing agent and reporting usage on shutdown.");
+
+        try {
+            usageReporter.finishUsageReportingOnShutdown();
+        } catch (Exception e) {
+            nonopLogger.error("Error occurred shutting down usage reporter.", e);
+            // Continue shutdown
+        }
         // TODO: Close other resources, e.g. threads
         // TODO: Consider whether to have an optimized close for shutting down faster, i.e. only flush the report, don't worry about other resources
     }

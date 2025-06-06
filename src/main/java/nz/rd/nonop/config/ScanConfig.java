@@ -1,3 +1,5 @@
+// Copyright 2025 Rich Dougherty <rich@rd.nz>
+
 package nz.rd.nonop.config;
 
 import nz.rd.nonop.internal.config.ScanMatcher;
@@ -23,7 +25,7 @@ public class ScanConfig {
         this.scanIncludeSynthetic = scanIncludeSynthetic;
     }
 
-    public static ScanConfig load(NonopLogger logger, Map<String, String> properties) {
+    public static ScanConfig load(NonopLogger logger, Map<String, String> properties) throws ConfigException {
         ScanRuleParser parser = new ScanRuleParser(logger);
 
         String userRulesStr = properties.get("nonop.scan");

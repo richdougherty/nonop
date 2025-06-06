@@ -12,13 +12,19 @@ Additionally, effort is taken to make even the instrumented code path as fast as
 
 Supports Java 8+.
 
-The `nonop` agent runs as a standard JVM agent. The prototype prints method usage to stdout.
+The `nonop` agent runs as a standard JVM agent. By default all your app's code is instrumented and usage information is
+printed to stdout.
 
 ```
 java -javaagent:nonop-<version>.jar com.myapp.MyApp
 ```
 
-You can also supply a package to limit the classes that nonop instruments.
+The `nonop.out` property can direct usage logging to a file instead of stdout.
+```
+java -javaagent:nonop-<version>.jar -Dnonop.out=nonop.log com.myapp.MyApp
+```
+
+The `nonop.scan` property can be set to restrict the classes that nonop instruments.
 ```
 java -javaagent:nonop-<version>.jar -Dnonop.scan=com.myapp com.myapp.MyApp
 ```

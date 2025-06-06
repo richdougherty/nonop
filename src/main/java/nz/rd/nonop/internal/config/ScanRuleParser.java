@@ -1,3 +1,5 @@
+// Copyright 2025 Rich Dougherty <rich@rd.nz>
+
 package nz.rd.nonop.internal.config;
 
 import nz.rd.nonop.internal.util.NonopLogger;
@@ -15,7 +17,6 @@ public class ScanRuleParser {
     private final NonopLogger logger;
 
     private static final Pattern COMMENT_PATTERN = Pattern.compile("^(.*?)(?:\\s*(?:#|//).*)?$");
-
 
     // Pattern to split by common separators, tolerant of multiple spaces.
     private static final Pattern RULE_SEPARATOR_PATTERN = Pattern.compile("[\\s,;]+");

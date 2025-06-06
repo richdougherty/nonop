@@ -91,21 +91,8 @@ tasks.test {
     }
 }
 
-// Define a custom task to run your integration test sample app
-tasks.register('runTestApp', JavaExec) {
-    description = "Runs SampleApp with the agent attached."
-
-    mainClass = 'nz.rd.nonoptest.integration.SampleApp'
-
-    // Use the test runtime classpath, which includes compiled test classes
-    // and all dependencies declared with testImplementation or testRuntimeOnly
-    classpath = sourceSets.test.runtimeClasspath
-
-    // Set the JVM arguments, including the javaagent argument
-    // We depend on the 'jar' task to ensure the agent JAR is built before we try to run it
-    dependsOn jar
-    jvmArgs = ["-javaagent:${jar.archiveFile.get().asFile.absolutePath}"]
-}
+// Directory to store benchmark results. Will be created by the task that runs the benchmarks.
+def benchmarkResultsDir = file("${layout.buildDirectory.get().asFile}/benchmark-results")
 
 // Define benchmark applications: [name: String, mainClass: String, appArgs: List<String>]
 // 'name' is used for task naming, should be unique and simple (e.g., lowercase_with_underscores)
@@ -120,15 +107,14 @@ def benchmarkApps = [
 // Define JVM argument configurations: [name: String, jvmArgsProvider: Closure returning List<String>]
 // Using a closure for jvmArgsProvider allows lazy evaluation of the agent JAR path.
 def jvmArgConfigs = [
-        [name: 'noAgent', jvmArgsProvider: { [] }],
-        [name: 'withAgent', jvmArgsProvider: { ["-javaagent:${tasks.named('jar').flatMap { it.archiveFile }.get().asFile.absolutePath}", "-Dnonop.scan=nz.rd.nonoptest"] }]
-]
+        [name: 'noAgent', jvmArgsProvider: { appConfig, jvmConfig -> [] }],
+        [name: 'withAgent', jvmArgsProvider: { appConfig, jvmConfig -> [
+                "-javaagent:${tasks.named('jar').flatMap { it.archiveFile }.get().asFile.absolutePath}",
+                "-Dnonop.scan=nz.rd.nonoptest",
+                "-Dnonop.out=${benchmarkResultsDir}/${appConfig.name}-${jvmConfig.name}.usage.log"
+        ] }]]
 
 // --- Dynamically Create Benchmark Tasks ---
-
-// Ensure the output directory for benchmark results exists
-//def benchmarkResultsDir = file("${buildDir}/benchmark-results")
-def benchmarkResultsDir = file("${layout.buildDirectory.get().asFile}/benchmark-results")
 
 benchmarkApps.each { appConfig ->
     jvmArgConfigs.each { jvmConfig ->
@@ -149,7 +135,7 @@ benchmarkApps.each { appConfig ->
             jvmArgumentProviders.add(new CommandLineArgumentProvider() {
                 @Override
                 Iterable<String> asArguments() {
-                    return jvmConfig.jvmArgsProvider() // Call the closure
+                    return jvmConfig.jvmArgsProvider(appConfig, jvmConfig) // Call the closure with parameters
                 }
             })
 
@@ -163,24 +149,12 @@ benchmarkApps.each { appConfig ->
             doFirst {
                 benchmarkResultsDir.mkdirs() // Ensure directory exists
                 // TODO: Consider TeeOutputStream (https://stackoverflow.com/questions/24633608/gradle-tasks-standardoutput-to-file-and-terminal-simultaneously)
-                standardOutput = new FileOutputStream("${benchmarkResultsDir}/${appConfig.name}-${jvmConfig.name}.log")
-                errorOutput = new FileOutputStream("${benchmarkResultsDir}/${appConfig.name}-${jvmConfig.name}.err.log")
+                standardOutput = new FileOutputStream("${benchmarkResultsDir}/${appConfig.name}-${jvmConfig.name}.stdout.log")
+                errorOutput = new FileOutputStream("${benchmarkResultsDir}/${appConfig.name}-${jvmConfig.name}.stderr.log")
             }
-
-            // Optional: Add system properties if needed
-            // systemProperty 'my.benchmark.property', 'value'
         }
     }
 }
-
-// You can create an aggregate task to run all benchmarks of a certain type
-//tasks.register('runAllMethodCallBenchmarksWithAgent') {
-//    group = "Benchmarking"
-//    description = "Runs all 'methodCalls' benchmarks with the agent."
-//    dependsOn tasks.matching {
-//        it.name.startsWith('runBenchmark_methodCalls') && it.name.endsWith('_withAgent')
-//    }
-//}
 
 tasks.register('runBenchmarks') {
     group = "Benchmarking"
