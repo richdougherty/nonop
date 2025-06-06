@@ -15,14 +15,12 @@ Supports Java 8+.
 The `nonop` agent runs as a standard JVM agent. The prototype prints method usage to stdout.
 
 ```
-java -javaagent:nonop-<version>.jar MyApp
-[nonop] INFO  METHOD_CALLED: MyApp main([Ljava/lang/String;)V
-[nonop] INFO  METHOD_CALLED: ....
-[nonop] INFO  METHOD_CALLED: ....
-[nonop] INFO  METHOD_CALLED: ....
-[nonop] INFO  METHOD_CALLED: ....
-[nonop] INFO  METHOD_CALLED: ....
-...
+java -javaagent:nonop-<version>.jar com.myapp.MyApp
+```
+
+You can also supply a package to limit the classes that nonop instruments.
+```
+java -javaagent:nonop-<version>.jar -Dnonop.scan=com.myapp com.myapp.MyApp
 ```
 
 ## License

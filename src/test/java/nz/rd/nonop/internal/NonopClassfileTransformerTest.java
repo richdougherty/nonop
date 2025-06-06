@@ -11,6 +11,9 @@ import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.dynamic.loading.ByteArrayClassLoader;
 import net.bytebuddy.implementation.StubMethod;
 import net.bytebuddy.pool.TypePool;
+import nz.rd.nonop.config.AgentConfig;
+import nz.rd.nonop.config.NonopPropertyUtils;
+import nz.rd.nonop.internal.transformer.NonopClassfileTransformer;
 import nz.rd.nonop.internal.util.NonopConsoleLogger;
 import nz.rd.nonop.internal.util.NonopLogger;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
@@ -31,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class NonopClassfileTransformerTest {
 
     private NonopLogger nonopLogger;
+    private AgentConfig agentConfig;
     private NonopClassfileTransformer.GetMethodUsageSnapshot getMethodUsageSnapshot;
 
     private final AtomicReference<Triple<Class<?>, String, String>> hookArgs = new AtomicReference<>();
@@ -38,11 +42,11 @@ class NonopClassfileTransformerTest {
     private static final String TEST_CLASS_NAME = "nz.rd.nonoptest.Dynamic1";
     private static final String TEST_METHOD_NAME = "myMethod";
     private static final String TEST_METHOD_DESCRIPTOR = "()V";
-//    private static final Pair<String, String> EXPECTED_METHOD_SIGNATURE = ImmutablePair.of(TEST_METHOD_NAME, TEST_METHOD_DESCRIPTOR); // void myMethod()
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         nonopLogger = new NonopConsoleLogger(false); // Set to true for debugging output from transformer
+        agentConfig = AgentConfig.load(nonopLogger, NonopPropertyUtils.loadNonopDefaults());
         getMethodUsageSnapshot = clazz -> Collections.emptySet();
 
         hookArgs.set(null);
@@ -67,7 +71,7 @@ class NonopClassfileTransformerTest {
 
     @Test
     public void instrumentUnusedMethods_shouldInstrumentMethodAndTriggerHook() throws Exception {
-        NonopClassfileTransformer transformer = new NonopClassfileTransformer(getMethodUsageSnapshot, nonopLogger);
+        NonopClassfileTransformer transformer = new NonopClassfileTransformer(agentConfig, getMethodUsageSnapshot, nonopLogger);
 
         // 1. Create original class bytes
         byte[] originalBytes = new ByteBuddy()
@@ -97,11 +101,6 @@ class NonopClassfileTransformerTest {
         );
         assertThat("Instrumented bytes should not be null", instrumentedBytes, notNullValue());
 
-        // For debugging save to './dump/nz/rd/nonop/Dynamic1.class'
-        // Uncomment the following line to save the instrumented class for inspection
-//        new File("./dump/nz/rd/nonoptest/Dynamic1.class").getParentFile().mkdirs();
-//        Files.write(Paths.get("./dump/nz/rd/nonoptest/Dynamic1.class"), instrumentedBytes);
-
         // 4. Load the instrumented class
         ClassLoader instrumentedClassLoader = new ByteArrayClassLoader(
                 getClass().getClassLoader(), // Parent classloader
@@ -109,12 +108,6 @@ class NonopClassfileTransformerTest {
                 ByteArrayClassLoader.PersistenceHandler.MANIFEST); // Or other persistence handler
         Class<?> instrumentedClass = instrumentedClassLoader.loadClass(TEST_CLASS_NAME);
         assertNotNull(instrumentedClass, "Instrumented class should be loaded");
-
-//        Class<?> hooksClassFromInstrumentedClass = instrumentedClass.getClassLoader().loadClass(NonopStaticHooks.class.getCanonicalName());
-//        Method hooksMethod = hooksClassFromInstrumentedClass.getDeclaredMethod("methodCalled", Class.class, String.class);
-//        hooksMethod.invoke(null, NonopStaticHooks.class, "fake_method_called");
-//        assertEquals(new ImmutablePair<>(NonopStaticHooks.class, "fake_method_called"), hookArgs.get());
-//        hookArgs.set(null);
 
         // 5. Instantiate and invoke the method
         Object instance = instrumentedClass.getDeclaredConstructor().newInstance();
@@ -129,7 +122,7 @@ class NonopClassfileTransformerTest {
     public void instrumentUnusedMethods_shouldNotInstrumentAlreadyUsedMethod() throws Exception {
         // Arrange: This time, the method is "already used"
         getMethodUsageSnapshot = clazz -> Collections.singleton(Pair.of(TEST_METHOD_NAME, TEST_METHOD_DESCRIPTOR));
-        NonopClassfileTransformer transformer = new NonopClassfileTransformer(getMethodUsageSnapshot, nonopLogger);
+        NonopClassfileTransformer transformer = new NonopClassfileTransformer(agentConfig, getMethodUsageSnapshot, nonopLogger);
 
         byte[] originalBytes = new ByteBuddy()
                 .subclass(Object.class)

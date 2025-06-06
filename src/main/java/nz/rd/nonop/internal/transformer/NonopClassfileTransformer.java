@@ -1,6 +1,6 @@
 // Copyright 2025 Rich Dougherty <rich@rd.nz>
 
-package nz.rd.nonop.internal;
+package nz.rd.nonop.internal.transformer;
 
 import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.asm.Advice;
@@ -8,15 +8,21 @@ import net.bytebuddy.description.method.MethodDescription;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.dynamic.DynamicType;
+import net.bytebuddy.matcher.ElementMatcher;
 import net.bytebuddy.matcher.ElementMatchers;
 import net.bytebuddy.pool.TypePool;
+import nz.rd.nonop.config.AgentConfig;
+import nz.rd.nonop.config.scan.ScanMatcher;
+import nz.rd.nonop.internal.NonopStaticHooks;
 import nz.rd.nonop.internal.util.NonopLogger;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.security.ProtectionDomain;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -31,26 +37,39 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
 
     private final GetMethodUsageSnapshot usageSnapshot;
     private final NonopLogger nonopLogger;
-    // Pre-compile matchers for efficiency
-    private final net.bytebuddy.matcher.ElementMatcher.Junction<TypeDescription> typeMatcher;
-    private final net.bytebuddy.matcher.ElementMatcher.Junction<MethodDescription> methodMatcher;
 
-    public NonopClassfileTransformer(GetMethodUsageSnapshot usageSnapshot, NonopLogger nonopLogger) {
+    // Pre-compile matchers for efficiency
+    private final net.bytebuddy.matcher.ElementMatcher<TypeDescription> typeMatcher;
+    private final net.bytebuddy.matcher.ElementMatcher<MethodDescription> methodMatcher;
+
+    private final boolean scanIncludeBootstrap;
+    private final boolean scanIncludeUnnamed;
+
+    public NonopClassfileTransformer(AgentConfig agentConfig, GetMethodUsageSnapshot usageSnapshot, NonopLogger nonopLogger) {
 
         this.usageSnapshot = usageSnapshot;
         this.nonopLogger = nonopLogger;
 
-        // TODO: Consider writing custom string matcher to make fast (if profiling shows room for improvement)
-        this.typeMatcher = ElementMatchers.isSubTypeOf(Object.class)
-                .or(ElementMatchers.isInterface()) // Now includes interfaces
-                .and(ElementMatchers.not(ElementMatchers.isSynthetic()))
-                .and(ElementMatchers.not(ElementMatchers.nameStartsWith("nz.rd.nonop.")))
-                .and(ElementMatchers.not(ElementMatchers.nameStartsWith("net.bytebuddy.")))
-                .and(ElementMatchers.not(ElementMatchers.nameStartsWith("java.")))
-                .and(ElementMatchers.not(ElementMatchers.nameStartsWith("javax.")))
-                .and(ElementMatchers.not(ElementMatchers.nameStartsWith("jdk.")))
-                .and(ElementMatchers.not(ElementMatchers.nameStartsWith("sun.")))
-                .and(ElementMatchers.not(ElementMatchers.nameStartsWith("com.sun.")));
+        ElementMatcher.Junction<TypeDescription> typeMatcherTemp =
+                ElementMatchers.isSubTypeOf(Object.class)
+                .or(ElementMatchers.isInterface());
+
+        if (!agentConfig.isScanIncludeSynthetic()) {
+            typeMatcherTemp = typeMatcherTemp.and(ElementMatchers.not(ElementMatchers.isSynthetic()));
+        }
+
+        List<ScanMatcher> allScanMatchers = new ArrayList<>();
+        allScanMatchers.addAll(agentConfig.getBuiltinScanMatchers());
+        allScanMatchers.addAll(agentConfig.getUserScanMatchers());
+        nonopLogger.debug("[nonop-config] Loaded scan matchers: " + allScanMatchers);
+        NameBasedScanRuleMatcher nameBasedScanRuleMatcher = new NameBasedScanRuleMatcher(allScanMatchers, nonopLogger);
+        typeMatcherTemp = typeMatcherTemp.and(nameBasedScanRuleMatcher);
+
+        // The NameBasedScanRuleMatcher now incorporates all include/exclude logic based on the ordered list.
+        this.typeMatcher = typeMatcherTemp;
+
+        this.scanIncludeBootstrap = agentConfig.isScanIncludeBootstrap();
+        this.scanIncludeUnnamed = agentConfig.isScanIncludeUnnamed();
 
         // Updated method matcher to include default methods and static methods in interfaces
         this.methodMatcher = ElementMatchers.isMethod()
@@ -58,7 +77,7 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
                 .and(ElementMatchers.not(ElementMatchers.isNative()))
                 .and(ElementMatchers.not(ElementMatchers.isBridge()))
                 .and(ElementMatchers.not(ElementMatchers.isSynthetic()))
-                .and(ElementMatchers.not(ElementMatchers.nameStartsWith("lambda$"))) // Exclude lambda methods
+                .and(ElementMatchers.not(ElementMatchers.nameStartsWith("lambda$"))) // Exclude lambda methods // TODO: are these synthetic anyway?
                 .or(ElementMatchers.isConstructor())
                 .or(ElementMatchers.isDefaultMethod()) // Include interface default methods
                 .or(ElementMatchers.isStatic().and(ElementMatchers.isMethod())); // Include static methods in interfaces
@@ -84,32 +103,23 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
             // See:
             // - https://github.com/puniverse/quasar/issues/160
             // - https://hibernate.atlassian.net/browse/HHH-9541
-            if (classNameJVM == null) {
+            if (!this.scanIncludeUnnamed && classNameJVM == null) {
                 // TODO: Consider if we want to allow this - would be hard to record usage, technically live code could be in a lambda
 //                nonopLogger.debug("Skipping instrumentation for unnamed synthetic class in ClassLoader: " + loader);
                 return null;
-            }
-            // Filter out some obvious classes that have weird files that confuse ByteBuddy or that we never want to process
-            // E.g.:
-            // - net.bytebuddy.pool.TypePool$Resolution$NoSuchTypeException: Cannot resolve type description for sun.reflect.GeneratedMethodAccessor9
-            // TODO: Make this nicer, perhaps a common exclusion list to tie in with the TypeMatcher we also define
-            // TODO: Test without these exclusions to see if we can make handling of unusual classes (synthetic, proxies, etc) better
-            if (classNameJVM.startsWith("java/") || classNameJVM.startsWith("sun/") || classNameJVM.startsWith("com/sun/")  || classNameJVM.startsWith("net/bytebuddy/") || classNameJVM.startsWith("nz/rd/nonop/")) {
-//                nonopLogger.debug("Skipping instrumentation for class starting with special excluded list: " + classNameJVM);
-                return null; // Do not transform
             }
 
             // TODO: Filter on classnames here before running other code - by excluding java/* early we can also exclude lots of weird synthetic classes, etc
             // TODO: Add option to include boot classloader - excludes lots of java and weird classes
             // Example unusual class: net.bytebuddy.pool.TypePool$Resolution$NoSuchTypeException: Cannot resolve type description for java.lang.invoke.BoundMethodHandle$Species_L4
-            if (loader == null) {
+            if (!this.scanIncludeBootstrap && loader == null) {
 //                nonopLogger.debug("Skipping instrumentation for bootstrap ClassLoader for className: " + classNameJVM);
                 return null;
             }
 
             // Example transformation: java/lang/invoke/BoundMethodHandle$Species_L4 ->
             // net.bytebuddy.pool.TypePool$Resolution$NoSuchTypeException: Cannot resolve type description for java.lang.invoke.BoundMethodHandle$Species_L4
-            String canonicalClassName = classNameJVM.replace('/', '.'); //.replace('$', '.');
+            String canonicalClassName = classNameJVM.replace('/', '.');
 
             // Create TypeDescription based on whether the class is being redefined or initially loaded
             TypeDescription typeDescription;
@@ -143,7 +153,7 @@ public class NonopClassfileTransformer implements ClassFileTransformer {
     }
 
     // Public for testing or direct use
-    public /* nullable */ byte[] instrumentUnusedMethods(TypeDescription typeDescription, String canonicalClassName, byte[] classfileBuffer, Set<Pair<String, String>> usedMethods) {
+    public byte @Nullable [] instrumentUnusedMethods(TypeDescription typeDescription, String canonicalClassName, byte[] classfileBuffer, Set<Pair<String, String>> usedMethods) {
         // TODO: If this code can be called concurrently for a class we are entering a race at this point which could result in incorrect instrumentation if ordering is reversed
         // TODO: Double check if we should be using something like AgentBuilder.disableClassFormatChanges to ensure we're doing conservative/low impact changes to classes
         DynamicType.Builder<?> builder = new ByteBuddy()

@@ -6,6 +6,7 @@ import nz.rd.nonop.internal.model.ClassLoaderRegistry;
 import nz.rd.nonop.internal.model.ClassUsageState;
 import nz.rd.nonop.internal.model.JVMRegistry;
 import nz.rd.nonop.internal.reporting.UsageReporter;
+import nz.rd.nonop.internal.transformer.NonopClassfileTransformer;
 import nz.rd.nonop.internal.util.NonopLogger;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -52,10 +53,6 @@ public final class NonopCore implements NonopStaticHooks.MethodCalled, NonopClas
         } catch (Exception e) {
             nonopLogger.error("Error in methodCalled", e);
         }
-    }
-
-    public interface ScheduleRetransformation {
-        void scheduleRetransformation(ClassUsageState classUsageState);
     }
 
     private void scheduleRetransformation(ClassUsageState classUsageState) {
