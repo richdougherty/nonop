@@ -110,7 +110,7 @@ def jvmArgConfigs = [
         [name: 'noAgent', jvmArgsProvider: { appConfig, jvmConfig -> [] }],
         [name: 'withAgent', jvmArgsProvider: { appConfig, jvmConfig -> [
                 "-javaagent:${tasks.named('jar').flatMap { it.archiveFile }.get().asFile.absolutePath}",
-                "-Dnonop.scan=nz.rd.nonoptest",
+                //"-Dnonop.scan=nz.rd.nonoptest",
                 "-Dnonop.out=${benchmarkResultsDir}/${appConfig.name}-${jvmConfig.name}.usage.log"
         ] }]]
 

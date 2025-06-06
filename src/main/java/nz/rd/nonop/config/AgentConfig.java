@@ -10,16 +10,19 @@ import java.util.Objects;
 public class AgentConfig {
     private final ScanConfig scanConfig;
     private final OutputConfig outputConfig;
+    private final FormatConfig formatConfig;
 
-    public AgentConfig(ScanConfig scanConfig, OutputConfig outputConfig) {
+    public AgentConfig(ScanConfig scanConfig, OutputConfig outputConfig, FormatConfig formatConfig) {
         this.scanConfig = scanConfig;
         this.outputConfig = outputConfig;
+        this.formatConfig = formatConfig;
     }
 
     public static AgentConfig load(NonopLogger logger, Map<String, String> properties) throws ConfigException {
         ScanConfig scanConfig = ScanConfig.load(logger, properties);
         OutputConfig outputConfig = OutputConfig.load(logger, properties);
-        return new AgentConfig(scanConfig, outputConfig);
+        FormatConfig formatConfig = FormatConfig.load(logger, properties);
+        return new AgentConfig(scanConfig, outputConfig, formatConfig);
     }
 
     public ScanConfig getScanConfig() {
@@ -30,16 +33,22 @@ public class AgentConfig {
         return outputConfig;
     }
 
+    public FormatConfig getFormatConfig() {
+        return formatConfig;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof AgentConfig)) return false;
         AgentConfig that = (AgentConfig) o;
-        return Objects.equals(scanConfig, that.scanConfig) && Objects.equals(outputConfig, that.outputConfig);
+        return Objects.equals(scanConfig, that.scanConfig) &&
+                Objects.equals(outputConfig, that.outputConfig) &&
+                Objects.equals(formatConfig, that.formatConfig);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(scanConfig, outputConfig);
+        return Objects.hash(scanConfig, outputConfig, formatConfig);
     }
 
     @Override
@@ -47,6 +56,7 @@ public class AgentConfig {
         return "AgentConfig{" +
                 "scanConfig=" + scanConfig +
                 ", outputConfig=" + outputConfig +
+                ", formatConfig=" + formatConfig +
                 '}';
     }
 }

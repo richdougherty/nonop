@@ -8,7 +8,7 @@ import nz.rd.nonop.internal.NonopStaticHooks;
 import nz.rd.nonop.internal.config.NonopPropertyUtils;
 import nz.rd.nonop.internal.reporting.OutputUsageReporter;
 import nz.rd.nonop.internal.reporting.UsageReporter;
-import nz.rd.nonop.internal.reporting.format.JsonUsageEventFormatter;
+import nz.rd.nonop.internal.reporting.format.UsageEventFormatter;
 import nz.rd.nonop.internal.transformer.NonopClassfileTransformer;
 import nz.rd.nonop.internal.util.NonopConsoleLogger;
 import nz.rd.nonop.internal.util.NonopLogger;
@@ -46,9 +46,8 @@ public class NonopAgent implements AutoCloseable {
     public NonopAgent(NonopLogger nonopLogger, AgentConfig agentConfig, Instrumentation instrumentation) throws IOException {
         this.nonopLogger = nonopLogger;
 
-        JsonUsageEventFormatter jsonUsageEventFormatter = new JsonUsageEventFormatter();
-        usageReporter = new OutputUsageReporter(nonopLogger, agentConfig.getOutputConfig(), jsonUsageEventFormatter);
-//        usageReporter = new LoggingUsageReporter(nonopLogger, jsonUsageEventFormatter);
+        UsageEventFormatter usageEventFormatter = UsageEventFormatter.createFromConfig(agentConfig.getFormatConfig());
+        usageReporter = new OutputUsageReporter(nonopLogger, agentConfig.getOutputConfig(), usageEventFormatter);
         NonopCore core = new NonopCore(nonopLogger, instrumentation, usageReporter);
 
         NonopClassfileTransformer transformer = new NonopClassfileTransformer(agentConfig.getScanConfig(), core, nonopLogger);
