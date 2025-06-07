@@ -25,7 +25,7 @@ public class NonopPropertyUtils {
 
     public static Map<String, String> loadNonopDefaults() throws IOException {
         Properties defaultProperties = new Properties();
-        try (InputStream resourceAsStream = NonopPropertyUtils.class.getResourceAsStream("/nz/rd/nonop/config/default.properties")) {
+        try (InputStream resourceAsStream = NonopPropertyUtils.class.getResourceAsStream("default.properties")) {
             defaultProperties.load(resourceAsStream);
         }
         return toNonopPropertiesMap(defaultProperties);

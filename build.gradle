@@ -1,5 +1,8 @@
+// Copyright 2025 Rich Dougherty <rich@rd.nz>
+
 plugins {
     id 'java-library'
+    id 'com.gradleup.shadow' version '8.3.6' // Can't use v9+ for Java 8 build // TODO: Make build use newer Java
 }
 
 group = "nz.rd.nonop"
@@ -15,6 +18,7 @@ java {
 
 repositories {
     mavenCentral()
+    gradlePluginPortal()
 }
 
 dependencies {
@@ -51,40 +55,8 @@ dependencies {
     // testAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
 }
 
-// Fat JAR for distributing agent
-// TODO: Shadow our dependencies
 jar {
     archiveBaseName = project.name
-    manifest {
-        attributes(
-                'Implementation-Title': project.name,
-                'Implementation-Version': project.version,
-                'Premain-Class': 'nz.rd.nonop.NonopAgent',
-                // 'Agent-Class': 'nz.rd.nonop.NonOpAgent', // TODO: consider supporting attach-on-the-fly later
-                'Can-Retransform-Classes': 'true',
-                'Can-Redefine-Classes': 'false' // Declare not needed explicitly
-        )
-    }
-    from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-    } {
-        // Exclude signature files from dependencies, which can cause issues
-        // when creating a fat JAR.
-        exclude "META-INF/*.SF"
-        exclude "META-INF/*.DSA"
-        exclude "META-INF/*.RSA"
-        // Exclude due to duplicates in byte-buddy and byte-buddy-agent
-        // TODO: Work out how to merge these between apps
-        exclude "META-INF/versions/9/module-info.class"
-        // Exclude license/notice files from dependencies to avoid bloat/conflicts
-        // if you are not redistributing them in a way that requires this.
-        // Review your obligations for each dependency.
-        exclude "META-INF/LICENSE*"
-        exclude "META-INF/NOTICE*"
-        exclude "LICENSE*" // TODO: Include licenses
-    }
-    // Be safe; can update if this causes an issue
-    duplicatesStrategy = DuplicatesStrategy.FAIL
 }
 
 tasks.test {
@@ -92,6 +64,54 @@ tasks.test {
     testLogging {
         events "passed", "skipped", "failed"
     }
+}
+
+tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    archiveBaseName = project.name
+    // We add a classifier to distinguish the fat JAR from the regular one.
+    archiveClassifier = 'agent'
+    // Ensure all dependencies are included.
+    configurations = [project.configurations.runtimeClasspath]
+
+    // This is the core of the change: relocate dependency packages.
+    // This prevents conflicts with the target application.
+    relocate 'net.bytebuddy', 'nz.rd.nonop.deps.bytebuddy'
+    relocate 'org.apache.commons.lang3', 'nz.rd.nonop.deps.apache.commons.lang3'
+
+    // TODO: Enable JAR minimization once building with newer Java
+    // minimize() // Requires jdependency which is not compat with Java 8
+
+    // The Shadow plugin will automatically merge service files, but it's good practice
+    // to call this explicitly.
+//    mergeServiceFiles()
+
+    // Exclude signature files and problematic module descriptors
+    // This replaces your manual excludes in the old 'jar' task.
+//    exclude "META-INF/*.SF"
+//    exclude "META-INF/*.DSA"
+//    exclude "META-INF/*.RSA"
+//    exclude "module-info.class"
+//    // Keep your license exclusion logic if needed
+//    exclude "META-INF/LICENSE*"
+//    exclude "META-INF/NOTICE*"
+//    exclude "LICENSE*"
+
+    // Copy the manifest attributes from your old 'jar' task.
+    // This is critical for the JVM to recognize it as an agent.
+    manifest {
+        attributes(
+                'Implementation-Title': project.name,
+                'Implementation-Version': project.version,
+                'Premain-Class': 'nz.rd.nonop.NonopAgent',
+                // 'Agent-Class': 'nz.rd.nonop.NonOpAgent',
+                'Can-Retransform-Classes': 'true',
+                'Can-Redefine-Classes': 'false'
+        )
+    }
+}
+
+tasks.named('build') {
+    dependsOn tasks.named('shadowJar')
 }
 
 // Directory to store benchmark results. Will be created by the task that runs the benchmarks.
@@ -112,7 +132,7 @@ def benchmarkApps = [
 def jvmArgConfigs = [
         [name: 'noAgent', jvmArgsProvider: { appConfig, jvmConfig -> [] }],
         [name: 'withAgent', jvmArgsProvider: { appConfig, jvmConfig -> [
-                "-javaagent:${tasks.named('jar').flatMap { it.archiveFile }.get().asFile.absolutePath}",
+                "-javaagent:${tasks.named('shadowJar').flatMap { it.archiveFile }.get().asFile.absolutePath}",
                 //"-Dnonop.scan=nz.rd.nonoptest",
                 "-Dnonop.out=${benchmarkResultsDir}/${appConfig.name}-${jvmConfig.name}.usage.log"
         ] }]]
@@ -143,7 +163,7 @@ benchmarkApps.each { appConfig ->
             })
 
             // All benchmark tasks depend on the agent JAR being built
-            dependsOn tasks.named('jar')
+            dependsOn tasks.named('shadowJar')
 
             // Optional: Force tasks to always run (useful for benchmarking)
             outputs.upToDateWhen { false }
