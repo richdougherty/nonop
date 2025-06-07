@@ -7,7 +7,7 @@ package nz.rd.nonop.internal.logging;
  * <p>
  * Where possible we follow SLF4J naming conventions.
  */
-public interface NonopLogger {
+public interface NonopLogger extends AutoCloseable {
 
     // TODO: Add other slf4j levels if needed, e.g. TRACE, FATAL
     enum Level {

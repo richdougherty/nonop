@@ -473,5 +473,10 @@ class AbstractNonopLoggerTest {
             this.lastMessage = null;
             this.lastThrowable = null;
         }
+
+        @Override
+        public void close() {
+            // No resources to close for test logger
+        }
     }
 }

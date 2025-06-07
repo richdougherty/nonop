@@ -3,6 +3,7 @@
 package nz.rd.nonop;
 
 import nz.rd.nonop.config.AgentConfig;
+import nz.rd.nonop.config.LogConfig;
 import nz.rd.nonop.internal.NonopCore;
 import nz.rd.nonop.internal.NonopStaticHooks;
 import nz.rd.nonop.internal.config.NonopPropertyUtils;
@@ -26,25 +27,27 @@ public class NonopAgent implements AutoCloseable {
         // TODO: Consider adding protection from IntelliJ's double-run agent bug under Gradle by making premain calls with identical args idempotent?
         // https://youtrack.jetbrains.com/issue/IDEA-235974/Java-instrumentation-premain-gets-called-twice-with-Gradle-run-delegation
 
-        // TODO: Command line argument to control logging and debug level
+        // Load configuration for the agent
+        AgentConfig agentConfig;
+        // TODO: Make boostrap logger configurable with ultra simple, alternative system property, e.g. -Dnonop.boostrap.debug=true
+        try (final NonopLogger bootstrapNonopLogger = new ConsoleNonopLogger(NonopLogger.Level.ERROR)) {
+            bootstrapNonopLogger.debug("[nonop] Initializing Nonop agent with instrumentation: " + instrumentation +
+                    ", args: " + (agentArgs == null ? "<none>" : agentArgs));
 
-        NonopLogger nonopLogger = new ConsoleNonopLogger(NonopLogger.Level.DEBUG);
-        nonopLogger.debug("[nonop] Initializing Nonop agent with instrumentation: " + instrumentation +
-                ", args: " + (agentArgs == null ? "<none>" : agentArgs));
+            Map<String, String> properties = NonopPropertyUtils.loadNonopSystemPropertiesWithDefaults();
+            bootstrapNonopLogger.debug("[nonop] Loaded nonop properties (system props combined with defaults): " + properties);
 
-        Map<String, String> properties = NonopPropertyUtils.loadNonopSystemPropertiesWithDefaults();
-        nonopLogger.debug("[nonop] Loaded nonop properties (system props combined with defaults): " + properties);
-
-        AgentConfig agentConfig = AgentConfig.load(nonopLogger, properties);
-        nonopLogger.debug("[nonop] Agent configuration loaded: " + agentConfig);
+            agentConfig = AgentConfig.load(bootstrapNonopLogger, properties);
+            bootstrapNonopLogger.debug("[nonop] Agent configuration loaded: " + agentConfig);
+        }
 
         @SuppressWarnings("resource") // Closed in shutdown hook
-        NonopAgent agent = new NonopAgent(nonopLogger, agentConfig, instrumentation);
+        NonopAgent agent = new NonopAgent(agentConfig, instrumentation);
         Runtime.getRuntime().addShutdownHook(new Thread(agent::close));
     }
 
-    public NonopAgent(NonopLogger nonopLogger, AgentConfig agentConfig, Instrumentation instrumentation) throws IOException {
-        this.nonopLogger = nonopLogger;
+    public NonopAgent(AgentConfig agentConfig, Instrumentation instrumentation) throws IOException {
+        this.nonopLogger = new ConsoleNonopLogger(agentConfig.getLogConfig().getLevel());
 
         UsageEventFormatter usageEventFormatter = UsageEventFormatter.createFromConfig(agentConfig.getFormatConfig());
         usageReporter = new OutputUsageReporter(nonopLogger, agentConfig.getOutputConfig(), usageEventFormatter);

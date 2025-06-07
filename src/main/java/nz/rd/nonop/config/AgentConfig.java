@@ -11,18 +11,21 @@ public class AgentConfig {
     private final ScanConfig scanConfig;
     private final OutputConfig outputConfig;
     private final FormatConfig formatConfig;
+    private final LogConfig logConfig;
 
-    public AgentConfig(ScanConfig scanConfig, OutputConfig outputConfig, FormatConfig formatConfig) {
+    public AgentConfig(ScanConfig scanConfig, OutputConfig outputConfig, FormatConfig formatConfig, LogConfig logConfig) {
         this.scanConfig = scanConfig;
         this.outputConfig = outputConfig;
         this.formatConfig = formatConfig;
+        this.logConfig = logConfig;
     }
 
     public static AgentConfig load(NonopLogger logger, Map<String, String> properties) throws ConfigException {
         ScanConfig scanConfig = ScanConfig.load(logger, properties);
         OutputConfig outputConfig = OutputConfig.load(logger, properties);
         FormatConfig formatConfig = FormatConfig.load(logger, properties);
-        return new AgentConfig(scanConfig, outputConfig, formatConfig);
+        LogConfig logConfig = LogConfig.load(logger, properties);
+        return new AgentConfig(scanConfig, outputConfig, formatConfig, logConfig);
     }
 
     public ScanConfig getScanConfig() {
@@ -37,18 +40,23 @@ public class AgentConfig {
         return formatConfig;
     }
 
+    public LogConfig getLogConfig() {
+        return logConfig;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof AgentConfig)) return false;
         AgentConfig that = (AgentConfig) o;
         return Objects.equals(scanConfig, that.scanConfig) &&
                 Objects.equals(outputConfig, that.outputConfig) &&
-                Objects.equals(formatConfig, that.formatConfig);
+                Objects.equals(formatConfig, that.formatConfig) &&
+                Objects.equals(logConfig, that.logConfig);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(scanConfig, outputConfig, formatConfig);
+        return Objects.hash(scanConfig, outputConfig, formatConfig, logConfig);
     }
 
     @Override
@@ -57,6 +65,7 @@ public class AgentConfig {
                 "scanConfig=" + scanConfig +
                 ", outputConfig=" + outputConfig +
                 ", formatConfig=" + formatConfig +
+                ", logConfig=" + logConfig +
                 '}';
     }
 }

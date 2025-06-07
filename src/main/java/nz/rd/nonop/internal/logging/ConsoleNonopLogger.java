@@ -19,4 +19,8 @@ public final class ConsoleNonopLogger extends AbstractNonopLogger {
         }
     }
 
+    @Override
+    public void close() {
+        // No resources to close for console logger
+    }
 }
