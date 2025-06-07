@@ -2,12 +2,12 @@
 
 package nz.rd.nonop.internal;
 
+import nz.rd.nonop.internal.logging.NonopLogger;
 import nz.rd.nonop.internal.model.ClassLoaderRegistry;
 import nz.rd.nonop.internal.model.ClassUsageState;
 import nz.rd.nonop.internal.model.JVMRegistry;
 import nz.rd.nonop.internal.reporting.UsageReporter;
 import nz.rd.nonop.internal.transformer.NonopClassfileTransformer;
-import nz.rd.nonop.internal.util.NonopLogger;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.lang.instrument.Instrumentation;

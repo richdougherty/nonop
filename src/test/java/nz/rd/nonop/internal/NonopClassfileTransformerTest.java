@@ -13,9 +13,9 @@ import net.bytebuddy.implementation.StubMethod;
 import net.bytebuddy.pool.TypePool;
 import nz.rd.nonop.config.ScanConfig;
 import nz.rd.nonop.internal.config.NonopPropertyUtils;
+import nz.rd.nonop.internal.logging.ConsoleNonopLogger;
+import nz.rd.nonop.internal.logging.NonopLogger;
 import nz.rd.nonop.internal.transformer.NonopClassfileTransformer;
-import nz.rd.nonop.internal.util.NonopConsoleLogger;
-import nz.rd.nonop.internal.util.NonopLogger;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
@@ -45,7 +45,7 @@ class NonopClassfileTransformerTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        nonopLogger = new NonopConsoleLogger(false); // Set to true for debugging output from transformer
+        nonopLogger = new ConsoleNonopLogger(NonopLogger.Level.OFF); // Set to true for debugging output from transformer
         scanConfig = ScanConfig.load(nonopLogger, NonopPropertyUtils.loadNonopDefaults());
         getMethodUsageSnapshot = clazz -> Collections.emptySet();
 

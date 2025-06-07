@@ -2,7 +2,7 @@
 
 package nz.rd.nonop.internal.config;
 
-import nz.rd.nonop.internal.util.NonopLogger;
+import nz.rd.nonop.internal.logging.NonopLogger;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 

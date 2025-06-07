@@ -3,7 +3,7 @@ package nz.rd.nonop.internal.transformer;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
 import nz.rd.nonop.internal.config.ScanMatcher;
-import nz.rd.nonop.internal.util.NonopLogger;
+import nz.rd.nonop.internal.logging.NonopLogger;
 
 import java.util.List;
 

@@ -2,7 +2,7 @@
 
 package nz.rd.nonop.config;
 
-import nz.rd.nonop.internal.util.NonopLogger;
+import nz.rd.nonop.internal.logging.NonopLogger;
 
 import java.util.Map;
 import java.util.Objects;

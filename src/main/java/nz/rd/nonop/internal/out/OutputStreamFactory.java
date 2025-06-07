@@ -3,7 +3,7 @@
 package nz.rd.nonop.internal.out;
 
 import nz.rd.nonop.config.OutputConfig;
-import nz.rd.nonop.internal.util.NonopLogger;
+import nz.rd.nonop.internal.logging.NonopLogger;
 
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;

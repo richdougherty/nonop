@@ -1,6 +1,6 @@
 // Copyright 2025 Rich Dougherty <rich@rd.nz>
 
-package nz.rd.nonop.internal.util;
+package nz.rd.nonop.internal.logging;
 
 /**
  * Small embeddable logging framework. We can delegate to others like SLF4J depending on runtime config.
@@ -8,6 +8,17 @@ package nz.rd.nonop.internal.util;
  * Where possible we follow SLF4J naming conventions.
  */
 public interface NonopLogger {
+
+    // TODO: Add other slf4j levels if needed, e.g. TRACE, FATAL
+    enum Level {
+        DEBUG,
+        INFO,
+        WARN,
+        ERROR,
+        OFF
+    }
+
+    Level getEnabledLevel();
     boolean isDebugEnabled();
     void debug(String message);
     void debug(String message, Throwable throwable);

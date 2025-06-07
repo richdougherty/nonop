@@ -4,7 +4,7 @@ package nz.rd.nonop.config;
 
 import nz.rd.nonop.internal.config.ScanMatcher;
 import nz.rd.nonop.internal.config.ScanRuleParser;
-import nz.rd.nonop.internal.util.NonopLogger;
+import nz.rd.nonop.internal.logging.NonopLogger;
 
 import java.util.List;
 import java.util.Map;

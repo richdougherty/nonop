@@ -3,9 +3,9 @@
 package nz.rd.nonop.internal.reporting;
 
 import nz.rd.nonop.config.OutputConfig;
+import nz.rd.nonop.internal.logging.NonopLogger;
 import nz.rd.nonop.internal.out.OutputStreamFactory;
 import nz.rd.nonop.internal.reporting.format.UsageEventFormatter;
-import nz.rd.nonop.internal.util.NonopLogger;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;

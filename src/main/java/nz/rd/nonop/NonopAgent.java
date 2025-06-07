@@ -6,12 +6,12 @@ import nz.rd.nonop.config.AgentConfig;
 import nz.rd.nonop.internal.NonopCore;
 import nz.rd.nonop.internal.NonopStaticHooks;
 import nz.rd.nonop.internal.config.NonopPropertyUtils;
+import nz.rd.nonop.internal.logging.ConsoleNonopLogger;
+import nz.rd.nonop.internal.logging.NonopLogger;
 import nz.rd.nonop.internal.reporting.OutputUsageReporter;
 import nz.rd.nonop.internal.reporting.UsageReporter;
 import nz.rd.nonop.internal.reporting.format.UsageEventFormatter;
 import nz.rd.nonop.internal.transformer.NonopClassfileTransformer;
-import nz.rd.nonop.internal.util.NonopConsoleLogger;
-import nz.rd.nonop.internal.util.NonopLogger;
 
 import java.io.IOException;
 import java.lang.instrument.Instrumentation;
@@ -28,7 +28,7 @@ public class NonopAgent implements AutoCloseable {
 
         // TODO: Command line argument to control logging and debug level
 
-        NonopLogger nonopLogger = new NonopConsoleLogger(true);
+        NonopLogger nonopLogger = new ConsoleNonopLogger(NonopLogger.Level.DEBUG);
         nonopLogger.debug("[nonop] Initializing Nonop agent with instrumentation: " + instrumentation +
                 ", args: " + (agentArgs == null ? "<none>" : agentArgs));
 

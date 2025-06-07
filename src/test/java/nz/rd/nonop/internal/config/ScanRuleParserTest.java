@@ -1,6 +1,9 @@
+// Copyright 2025 Rich Dougherty <rich@rd.nz>
+
 package nz.rd.nonop.internal.config;
 
-import nz.rd.nonop.internal.util.NonopConsoleLogger;
+import nz.rd.nonop.internal.logging.ConsoleNonopLogger;
+import nz.rd.nonop.internal.logging.NonopLogger;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
@@ -14,7 +17,7 @@ import java.util.List;
 
 class ScanRuleParserTest {
 
-    private final ScanRuleParser scanRuleParser = new ScanRuleParser(new NonopConsoleLogger(true));
+    private final ScanRuleParser scanRuleParser = new ScanRuleParser(new ConsoleNonopLogger(NonopLogger.Level.OFF));
 
     @ParameterizedTest
     @ValueSource(strings = {"", "  ", "\t", "\n"})
