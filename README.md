@@ -71,8 +71,26 @@ java -javaagent:nonop-agent-<version>.jar -Dnonop.scan=com.myapp com.myapp.MyApp
 
 [Rich Dougherty](https://rd.nz)
 
-## Footnotes
+## Implementation note
 
-† Note the current algorithm removes a method's instrumentation after the _second_ call to a method. Removing on the
-first call  is too  aggressive and results in too-frequent full class reinstrumentation vs the small overhead of running
-the method instrumentation twice.
+A small bytecode hook is added to every method and constructor. This hook tracks when a method has been used, allowing
+usage to be recorded. This is very low overhead.
+
+Additionally, once a method has been marked as being used, the bytecode hook can be removed from the method. The
+implementation schedules removal of bytecode to happen when the method is called a second time. Removal is done by
+rewriting the class bytecode that contains the method to remove the instrumentation bytecode completely, returning the
+method to its original bytecode.
+
+Removing the bytecode hook, rather than leaving it in place ensures that methods are quickly returned to their original
+bytecode, essentially eliminating any overhead after a few calls. This allows applications to run at full performance
+once all methods have been recorded as being used.
+
+Why remove the bytecode hook on the second call rather than the first? Removing it on the second call has some
+advantages. One reason is that many methods are only called once, so rewriting their class to remove the bytecode is
+wasted work. Another good reason is that when a method is called for the first time, it often calls other methods for
+the first time as well. If we delay rewriting class bytecode until more methods have been called, we can avoid rewriting
+the  classes too many times, since we can batch changes to multiple methods into each class bytecode rewrite operation.
+
+Apart from bytecode instrumentation overhead, there is still some memory used and some resource usage for logging the
+usage. This is not very high, but can certainly be reduced with further optimization work. For example, data structures
+can be optimized and operations can be made concurrent to avoid blocking the main program execution.
