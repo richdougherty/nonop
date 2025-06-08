@@ -4,6 +4,7 @@ plugins {
     id 'java-library'
     id 'com.gradleup.shadow' version '8.3.6' // Can't use v9+ for Java 8 build // TODO: Make build use newer Java
     id 'maven-publish'
+    id 'signing'
 }
 
 group = "nz.rd.nonop"
@@ -88,8 +89,7 @@ tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
     relocate 'net.bytebuddy', 'nz.rd.nonop.deps.bytebuddy'
     relocate 'org.apache.commons.lang3', 'nz.rd.nonop.deps.apache.commons.lang3'
 
-    // TODO: Enable JAR minimization once building with newer Java
-    // minimize() // Requires jdependency which is not compat with Java 8
+    minimize()
 
     // The Shadow plugin will automatically merge service files, but call explicitly
     mergeServiceFiles()
@@ -241,4 +241,56 @@ publishing {
 //            }
 //        }
     }
+}
+
+def signingKey = System.getenv("GPG_SIGNING_KEY")
+def signingPassword = System.getenv("GPG_SIGNING_KEY_PASSPHRASE")
+def signingWithGpgCmd = System.getenv("GPG_SIGNING_WITH_GPG_CMD") ?: false
+
+signing {
+
+    // Require env vars to be explicitly set to give signing behaviour
+    // CI/CD uses env vars (or can set locally to test CI/CD):
+    // - GPG_SIGNING_KEY with output of `gpg --export-secret-keys --armor <key-id>`
+    // - GPG_SIGNING_KEY_PASSPHRASE with passphrase for the key
+    // Local dev will often use the GPG command, which has better security than env vars
+    // - GPG_SIGNING_WITH_GPG_CMD=true
+
+    if (signingWithGpgCmd?.toBoolean() ?: false) {
+        // Local environment: Use the GPG command-line tool.
+        useGpgCmd()
+    } else {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+    }
+
+    // Sign all publications.
+    sign publishing.publications
+}
+
+// Informational task to help us diagnose signing issues (i.e. missing env vars in CI)
+tasks.register('checkSigningCredentials') {
+    description = 'Checks that GPG signing credentials are set for publishing.'
+    doLast {
+        if (signingWithGpgCmd) {
+            project.logger.lifecycle("Signing: Configured to use GPG command-line tool.")
+        } else {
+            project.logger.lifecycle("Signing: Configured to use environment variables for signing.")
+            if (signingKey == null) {
+                project.logger.warn("GPG signing key (GPG_SIGNING_KEY) is not set in environment variables.")
+            } else if (signingKey.isBlank()) {
+                project.logger.warn("GPG signing key (GPG_SIGNING_KEY) is set but is blank.")
+            }
+            if (signingPassword == null) {
+                project.logger.warn("GPG signing key passphrase (GPG_SIGNING_KEY_PASSPHRASE) is not set in environment variables.")
+            } else if (signingPassword.isBlank()) {
+                project.logger.warn("GPG signing key passphrase (GPG_SIGNING_KEY_PASSPHRASE) is set but is blank.")
+            }
+            // TODO: Consider whether to fail here with an informative message
+        }
+    }
+}
+
+tasks.withType(Sign) {
+    logger.info("Configuring signing task '{}' to depend on 'checkSigningCredentials'", name)
+    dependsOn tasks.named('checkSigningCredentials')
 }
