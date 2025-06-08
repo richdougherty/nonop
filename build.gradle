@@ -3,6 +3,7 @@
 plugins {
     id 'java-library'
     id 'com.gradleup.shadow' version '8.3.6' // Can't use v9+ for Java 8 build // TODO: Make build use newer Java
+    id 'maven-publish'
 }
 
 group = "nz.rd.nonop"
@@ -14,6 +15,8 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(8)
     }
+    withJavadocJar()
+    withSourcesJar()
 }
 
 repositories {
@@ -57,6 +60,12 @@ dependencies {
 
 jar {
     archiveBaseName = project.name
+    manifest {
+        attributes(
+                'Implementation-Title': project.name,
+                'Implementation-Version': project.version
+        )
+    }
 }
 
 tasks.test {
@@ -67,9 +76,10 @@ tasks.test {
 }
 
 tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-    archiveBaseName = project.name
+    archiveBaseName = "${project.name}-agent"
+    archiveClassifier = ''
     // We add a classifier to distinguish the fat JAR from the regular one.
-    archiveClassifier = 'agent'
+//    archiveClassifier = 'agent'
     // Ensure all dependencies are included.
     configurations = [project.configurations.runtimeClasspath]
 
@@ -81,20 +91,18 @@ tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
     // TODO: Enable JAR minimization once building with newer Java
     // minimize() // Requires jdependency which is not compat with Java 8
 
-    // The Shadow plugin will automatically merge service files, but it's good practice
-    // to call this explicitly.
-//    mergeServiceFiles()
+    // The Shadow plugin will automatically merge service files, but call explicitly
+    mergeServiceFiles()
 
     // Exclude signature files and problematic module descriptors
-    // This replaces your manual excludes in the old 'jar' task.
-//    exclude "META-INF/*.SF"
-//    exclude "META-INF/*.DSA"
-//    exclude "META-INF/*.RSA"
-//    exclude "module-info.class"
-//    // Keep your license exclusion logic if needed
-//    exclude "META-INF/LICENSE*"
-//    exclude "META-INF/NOTICE*"
-//    exclude "LICENSE*"
+    exclude "META-INF/*.SF"
+    exclude "META-INF/*.DSA"
+    exclude "META-INF/*.RSA"
+    // exclude "module-info.class"
+    // Licenses and notices can conflict - TODO: Move to dep-specific folders
+    exclude "META-INF/LICENSE*"
+    exclude "META-INF/NOTICE*"
+    exclude "LICENSE*"
 
     // Copy the manifest attributes from your old 'jar' task.
     // This is critical for the JVM to recognize it as an agent.
@@ -183,4 +191,54 @@ tasks.register('runBenchmarks') {
     group = "Benchmarking"
     description = "Runs all defined benchmarks."
     dependsOn tasks.matching { it.name.startsWith('runBenchmark_') }
+}
+
+publishing {
+    publications {
+        // Defines the "agent" publication, which is the fat JAR
+        agent(MavenPublication) {
+            // Use a different artifactId for the agent JAR for clarity
+            artifactId = "${project.name}-agent"
+            artifact tasks.named('shadowJar')
+
+            // Metadata for the POM file
+            pom {
+                name = 'nonop Java Agent'
+                description = 'An extremely low overhead, simple to use Java dead code detector.'
+                url = 'https://github.com/richdougherty/nonop'
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'richdougherty'
+                        name = 'Rich Dougherty'
+                        email = 'rich@rd.nz'
+                        url = 'https://rd.nz'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:git://github.com/richdougherty/nonop.git'
+                    developerConnection = 'scm:git:ssh://github.com/richdougherty/nonop.git'
+                    url = 'https://github.com/richdougherty/nonop'
+                }
+            }
+        }
+    }
+
+    repositories {
+        // Repository for GitHub Packages
+//        maven {
+//            name = "GitHubPackages"
+//            url = "https://maven.pkg.github.com/richdougherty/nonop"
+//            credentials {
+//                // Reads username/password from properties, which we'll set up
+//                username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR")
+//                password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")
+//            }
+//        }
+    }
 }
