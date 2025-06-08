@@ -128,7 +128,7 @@ def benchmarkResultsDir = file("${layout.buildDirectory.get().asFile}/benchmark-
 // Define benchmark applications: [name: String, mainClass: String, appArgs: List<String>]
 // 'name' is used for task naming, should be unique and simple (e.g., lowercase_with_underscores)
 def benchmarkApps = [
-        [name: 'methodCalls', mainClass: 'nz.rd.nonoptest.benchmark.BenchmarkMain', appArgs: ['20']],
+        [name: 'methodCalls', mainClass: 'nz.rd.nonoptest.benchmark.BenchmarkMain', appArgs: ['50']],
 //        [name: 'methodCalls2000', mainClass: 'nz.rd.nonoptest.benchmark.BenchmarkMain', appArgs: ['2000']],
 //        [name: 'method_calls_100', mainClass: 'nz.rd.nonoptest.benchmark.BenchmarkMain', appArgs: ['100']],
          [name: 'sampleApp', mainClass: 'nz.rd.nonoptest.integration.SampleApp', appArgs: []]
